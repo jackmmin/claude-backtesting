@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>업비트 코인 차트</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d1117;
+      color: #e6edf3;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-size: 1.3rem;
+      color: #58a6ff;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .upbit-badge {
+      background: #1c6ef3;
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      letter-spacing: 1px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 32px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    select, button {
+      background: #161b22;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    select:hover, button:hover {
+      border-color: #58a6ff;
+    }
+
+    select:focus, button:focus {
+      outline: none;
+      border-color: #58a6ff;
+    }
+
+    button.active {
+      background: #1c6ef3;
+      border-color: #1c6ef3;
+      color: #fff;
+    }
+
+    .period-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .period-btns button {
+      padding: 6px 14px;
+      font-size: 0.82rem;
+    }
+
+    .ticker-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .ticker-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 14px 18px;
+    }
+
+    .ticker-card .label {
+      font-size: 0.75rem;
+      color: #8b949e;
+      margin-bottom: 4px;
+    }
+
+    .ticker-card .value {
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .value.up   { color: #3fb950; }
+    .value.down { color: #f85149; }
+    .value.neutral { color: #e6edf3; }
+
+    .chart-wrap {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+      position: relative;
+    }
+
+    .chart-wrap canvas {
+      max-height: 480px;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(13,17,23,0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: #8b949e;
+      z-index: 10;
+    }
+
+    .loading-overlay.hidden { display: none; }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid #30363d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 10px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    footer {
+      text-align: center;
+      color: #8b949e;
+      font-size: 0.78rem;
+      padding: 24px;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>업비트 코인 차트</h1>
+  <span class="upbit-badge">UPBIT</span>
+</header>
+
+<div class="container">
+
+  <div class="controls">
+    <select id="marketSelect">
+      <option value="">마켓 불러오는 중...</option>
+    </select>
+
+    <div class="period-btns">
+      <button data-count="7"  class="period-btn">7일</button>
+      <button data-count="30" class="period-btn active">30일</button>
+      <button data-count="90" class="period-btn">90일</button>
+      <button data-count="180" class="period-btn">180일</button>
+      <button data-count="365" class="period-btn">1년</button>
+    </div>
+  </div>
+
+  <div class="ticker-bar" id="tickerBar">
+    <div class="ticker-card"><div class="label">현재가</div><div class="value neutral" id="t-price">-</div></div>
+    <div class="ticker-card"><div class="label">전일 대비</div><div class="value neutral" id="t-change">-</div></div>
+    <div class="ticker-card"><div class="label">등락률</div><div class="value neutral" id="t-rate">-</div></div>
+    <div class="ticker-card"><div class="label">24h 거래대금</div><div class="value neutral" id="t-vol">-</div></div>
+    <div class="ticker-card"><div class="label">52주 최고</div><div class="value neutral" id="t-high52">-</div></div>
+    <div class="ticker-card"><div class="label">52주 최저</div><div class="value neutral" id="t-low52">-</div></div>
+  </div>
+
+  <div class="chart-wrap">
+    <div class="loading-overlay" id="loader">
+      <div class="spinner"></div> 데이터 로딩 중...
+    </div>
+    <canvas id="chart"></canvas>
+  </div>
+
+</div>
+
+<footer>데이터 출처: Upbit REST API &nbsp;|&nbsp; 차트: Chart.js</footer>
+
+<script>
+  let chart = null;
+  let currentCount = 30;
+
+  // ── 마켓 목록 로드 ──────────────────────────────────────
+  async function loadMarkets() {
+    const res = await fetch("/api/markets");
+    const data = await res.json();
+    const sel = document.getElementById("marketSelect");
+    sel.innerHTML = "";
+    data.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m.market;
+      opt.textContent = `${m.market} (${m.korean_name})`;
+      sel.appendChild(opt);
+    });
+    sel.value = "KRW-BTC";
+    loadChart();
+  }
+
+  // ── 티커 업데이트 ───────────────────────────────────────
+  async function loadTicker(market) {
+    const res = await fetch(`/api/ticker?market=${market}`);
+    const [t] = await res.json();
+
+    const fmt = n => Number(n).toLocaleString("ko-KR");
+    const fmtB = n => (n / 1e8).toFixed(1) + "억";
+
+    const priceEl  = document.getElementById("t-price");
+    const changeEl = document.getElementById("t-change");
+    const rateEl   = document.getElementById("t-rate");
+    const volEl    = document.getElementById("t-vol");
+    const high52El = document.getElementById("t-high52");
+    const low52El  = document.getElementById("t-low52");
+
+    priceEl.textContent  = fmt(t.trade_price) + " ₩";
+    changeEl.textContent = (t.signed_change_price >= 0 ? "+" : "") + fmt(t.signed_change_price) + " ₩";
+    rateEl.textContent   = (t.signed_change_rate >= 0 ? "+" : "") + (t.signed_change_rate * 100).toFixed(2) + "%";
+    volEl.textContent    = fmtB(t.acc_trade_price_24h);
+    high52El.textContent = fmt(t.highest_52_week_price) + " ₩";
+    low52El.textContent  = fmt(t.lowest_52_week_price) + " ₩";
+
+    const dir = t.change === "RISE" ? "up" : t.change === "FALL" ? "down" : "neutral";
+    changeEl.className = "value " + dir;
+    rateEl.className   = "value " + dir;
+  }
+
+  // ── 차트 렌더링 ─────────────────────────────────────────
+  async function loadChart() {
+    const market = document.getElementById("marketSelect").value;
+    if (!market) return;
+
+    document.getElementById("loader").classList.remove("hidden");
+
+    const [candleRes] = await Promise.all([
+      fetch(`/api/candles?market=${market}&count=${currentCount}`),
+      loadTicker(market),
+    ]);
+    const candles = await candleRes.json();
+
+    // Upbit returns newest-first; reverse for chronological order
+    candles.reverse();
+
+    const labels = candles.map(c => c.candle_date_time_kst.slice(0, 10));
+    const closes = candles.map(c => c.trade_price);
+
+    const isUp = closes[closes.length - 1] >= closes[0];
+
+    const grad = (ctx) => {
+      const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
+      g.addColorStop(0, isUp ? "rgba(63,185,80,0.4)" : "rgba(248,81,73,0.4)");
+      g.addColorStop(1, "rgba(13,17,23,0)");
+      return g;
+    };
+
+    const lineColor = isUp ? "#3fb950" : "#f85149";
+
+    if (chart) chart.destroy();
+
+    const ctx = document.getElementById("chart").getContext("2d");
+    chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: market + " 종가",
+          data: closes,
+          borderColor: lineColor,
+          borderWidth: 2.5,
+          pointRadius: currentCount <= 30 ? 3 : 0,
+          pointHoverRadius: 5,
+          pointBackgroundColor: lineColor,
+          fill: true,
+          backgroundColor: grad,
+          tension: 0.35,
+        }],
+      },
+      options: {
+        responsive: true,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: "#8b949e", font: { size: 13 } },
+          },
+          tooltip: {
+            backgroundColor: "#161b22",
+            borderColor: "#30363d",
+            borderWidth: 1,
+            titleColor: "#8b949e",
+            bodyColor: "#e6edf3",
+            callbacks: {
+              label: ctx => " " + Number(ctx.parsed.y).toLocaleString("ko-KR") + " ₩",
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: "#8b949e", maxTicksLimit: 10 },
+            grid:  { color: "#21262d" },
+          },
+          y: {
+            ticks: {
+              color: "#8b949e",
+              callback: v => Number(v).toLocaleString("ko-KR"),
+            },
+            grid: { color: "#21262d" },
+          },
+        },
+      },
+    });
+
+    document.getElementById("loader").classList.add("hidden");
+  }
+
+  // ── 이벤트 바인딩 ───────────────────────────────────────
+  document.getElementById("marketSelect").addEventListener("change", loadChart);
+
+  document.querySelectorAll(".period-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".period-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentCount = parseInt(btn.dataset.count);
+      loadChart();
+    });
+  });
+
+  // ── 초기 로드 ────────────────────────────────────────────
+  loadMarkets();
+
+  // 30초마다 티커 자동 갱신
+  setInterval(() => {
+    const market = document.getElementById("marketSelect").value;
+    if (market) loadTicker(market);
+  }, 30000);
+</script>
+
+</body>
+</html>

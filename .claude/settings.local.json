@@ -1,0 +1,14 @@
+{
+  "env": {
+    "MAX_THINKING_TOKENS": "10000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "50",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git fetch *)",
+      "Bash(node -e \"require\\('./routes/upbit'\\); require\\('./api/upbit/index'\\); console.log\\('모듈 로드 성공'\\)\")"
+    ]
+  },
+  "model": "sonnet"
+}
