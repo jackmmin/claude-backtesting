@@ -12,7 +12,12 @@
       "Bash(node -e \"require\\('./exchanges'\\); require\\('./features/markets/routes'\\); require\\('./features/candles/routes'\\); require\\('./features/ticker/routes'\\); console.log\\('모듈 로드 성공'\\)\")",
       "Bash(node -e ' *)",
       "Bash(python -c ' *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(python -c \"from features.signals.service import calculate_signals; print\\('import ok'\\)\")",
+      "Bash(python app.py)",
+      "Bash(curl -s \"http://localhost:5000/api/signals?market=KRW-BTC&count=60\")",
+      "Bash(python -m json.tool --no-ensure-ascii)",
+      "Bash(python -c \"import sys; data=sys.stdin.read\\(\\); print\\(data[:1500]\\)\")"
     ]
   },
   "model": "sonnet"
