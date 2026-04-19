@@ -211,7 +211,8 @@
       accent-color: #58a6ff;
       width: 120px;
     }
-    .bt-controls input[type=number] {
+    .bt-controls input[type=number],
+    .bt-controls input[type=text] {
       background: #161b22;
       border: 1px solid #30363d;
       color: #e6edf3;
@@ -221,10 +222,12 @@
       width: 80px;
       text-align: center;
     }
-    .bt-controls input[type=number].wide {
-      width: 130px;
+    .bt-controls input[type=number].wide,
+    .bt-controls input[type=text].wide {
+      width: 140px;
     }
-    .bt-controls input[type=number]:focus {
+    .bt-controls input[type=number]:focus,
+    .bt-controls input[type=text]:focus {
       outline: none;
       border-color: #58a6ff;
     }
@@ -283,7 +286,8 @@
       padding: 14px 18px;
     }
     .stat-card .s-label { font-size: 0.75rem; color: #8b949e; margin-bottom: 4px; }
-    .stat-card .s-value { font-size: 1.2rem; font-weight: 700; }
+    .stat-card .s-value { font-size: 1.2rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .s-value.money { font-size: 0.95rem; }
     .s-value.pos { color: #3fb950; }
     .s-value.neg { color: #f85149; }
     .s-value.neutral { color: #e6edf3; }
@@ -404,7 +408,7 @@
       </label>
       <label>
         초기비용 (₩):
-        <input type="number" class="wide" id="initialCapital" min="1000" step="10000" value="1000000">
+        <input type="text" class="wide" id="initialCapital" value="1,000,000" inputmode="numeric">
       </label>
       <label>
         K 값:
@@ -660,6 +664,20 @@
   const kDisplay = document.getElementById("kValueDisplay");
   kSlider.addEventListener("input", () => { kDisplay.textContent = kSlider.value; });
 
+  // 초기비용 쉼표 포맷
+  const capitalInput = document.getElementById("initialCapital");
+  capitalInput.addEventListener("input", () => {
+    const raw = capitalInput.value.replace(/[^0-9]/g, "");
+    const cursor = capitalInput.selectionStart;
+    const prevLen = capitalInput.value.length;
+    capitalInput.value = raw ? Number(raw).toLocaleString("ko-KR") : "";
+    const diff = capitalInput.value.length - prevLen;
+    capitalInput.setSelectionRange(cursor + diff, cursor + diff);
+  });
+  function getCapitalValue() {
+    return parseInt(capitalInput.value.replace(/[^0-9]/g, "")) || 1000000;
+  }
+
   document.getElementById("btRunBtn").addEventListener("click", runBacktest);
 
   const INTERVAL_LABEL = {
@@ -674,7 +692,7 @@
     const k = parseFloat(kSlider.value);
     const interval = document.getElementById("intervalSelect").value;
     const count = parseInt(document.getElementById("candleCount").value) || 200;
-    const initialCapital = parseInt(document.getElementById("initialCapital").value) || 1000000;
+    const initialCapital = getCapitalValue();
     const btn = document.getElementById("btRunBtn");
     btn.disabled = true;
     document.getElementById("btLoadingMsg").style.display = "block";
@@ -745,11 +763,11 @@
     setVal("statTotalReturn", (d.total_return >= 0 ? "+" : "") + pct(d.total_return),
            d.total_return >= 0 ? "pos" : "neg");
     setVal("statCandles", d.total_candles + "개", "neutral");
-    setVal("statInitial", fmt(d.initial_capital) + " ₩", "neutral");
-    setVal("statFinal", fmt(d.final_value) + " ₩", d.profit_loss >= 0 ? "pos" : "neg");
+    setVal("statInitial", fmt(d.initial_capital) + " ₩", "neutral money");
+    setVal("statFinal", fmt(d.final_value) + " ₩", (d.profit_loss >= 0 ? "pos" : "neg") + " money");
     setVal("statProfitLoss",
       (d.profit_loss >= 0 ? "+" : "") + fmt(d.profit_loss) + " ₩",
-      d.profit_loss >= 0 ? "pos" : "neg");
+      (d.profit_loss >= 0 ? "pos" : "neg") + " money");
 
     // 에쿼티 커브 차트
     if (equityChart) { equityChart.destroy(); equityChart = null; }
@@ -799,7 +817,15 @@
               titleColor: "#8b949e",
               bodyColor: "#e6edf3",
               callbacks: {
-                label: ctx => " " + Number(ctx.parsed.y).toLocaleString("ko-KR") + " ₩",
+                label: ctx => {
+                  const val = ctx.parsed.y;
+                  if (ctx.datasetIndex === 0) {
+                    const chg = (val - d.initial_capital) / d.initial_capital * 100;
+                    const sign = chg >= 0 ? "+" : "";
+                    return ` ${Number(val).toLocaleString("ko-KR")} ₩  (원금대비 ${sign}${chg.toFixed(2)}%)`;
+                  }
+                  return ` ${Number(val).toLocaleString("ko-KR")} ₩`;
+                },
               },
             },
           },
