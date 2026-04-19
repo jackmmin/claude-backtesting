@@ -17,19 +17,25 @@ def get_candles(market="KRW-BTC", count=90):
 
 def get_candles_bulk(market="KRW-BTC", count=200, interval="days"):
     path = INTERVAL_PATH.get(interval, "/candles/days")
-    count = min(count, 400)
+    count = min(count, 1000)
 
-    batch1 = get(path, params={"market": market, "count": min(count, 200)})
-    if len(batch1) < 200 or count <= 200:
-        return batch1
+    result = []
+    remaining = count
+    to_str = None
 
-    oldest_dt = datetime.strptime(batch1[-1]["candle_date_time_utc"], "%Y-%m-%dT%H:%M:%S")
-    to_str = (oldest_dt - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%S")
+    while remaining > 0:
+        batch_size = min(remaining, 200)
+        params = {"market": market, "count": batch_size}
+        if to_str:
+            params["to"] = to_str
+        batch = get(path, params=params)
+        if not batch:
+            break
+        result.extend(batch)
+        remaining -= len(batch)
+        if len(batch) < batch_size:
+            break
+        oldest_dt = datetime.strptime(batch[-1]["candle_date_time_utc"], "%Y-%m-%dT%H:%M:%S")
+        to_str = (oldest_dt - timedelta(seconds=1)).strftime("%Y-%m-%dT%H:%M:%S")
 
-    batch2 = get(path, params={
-        "market": market,
-        "count": min(count - 200, 200),
-        "to": to_str,
-    })
-
-    return batch1 + batch2
+    return result
