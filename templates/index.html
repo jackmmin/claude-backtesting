@@ -519,7 +519,7 @@
 
       <!-- 에쿼티 커브 -->
       <div class="chart-wrap" style="margin-bottom:20px;">
-        <canvas id="equityChart"></canvas>
+        <canvas id="equityChart" style="height:260px;max-height:260px;"></canvas>
       </div>
 
       <!-- 최근 거래 내역 -->
@@ -552,6 +552,7 @@
   let btCandleChart = null;
 
   // ── 마켓 목록 로드 ──────────────────────────────────────
+  // Upbit KRW 마켓 거래량 TOP10 목록을 받아 셀렉트 박스에 채운 뒤 초기 차트 로드
   async function loadMarkets() {
     const res = await fetch("/api/markets");
     const data = await res.json();
@@ -568,6 +569,7 @@
   }
 
   // ── 티커 업데이트 ───────────────────────────────────────
+  // 현재가·등락률·52주 최고/최저 등 실시간 시세 카드 갱신 (30초 자동 반복)
   async function loadTicker(market) {
     const res = await fetch(`/api/ticker?market=${market}`);
     const [t] = await res.json();
@@ -602,17 +604,21 @@
   };
 
   // ── 차트 렌더링 ─────────────────────────────────────────
+  // 현재 선택된 타임프레임 값 반환 (minutes5/15/60/240, days, weeks, months)
   function getChartInterval() {
     const el = document.getElementById("chartIntervalSelect");
     return el ? el.value : "days";
   }
 
+  // 분봉은 "YYYY-MM-DD HH:mm", 일봉 이상은 "YYYY-MM-DD" 형식으로 레이블 반환
   function formatCandleLabel(kstStr, interval) {
     if (!kstStr) return "";
     if (interval.startsWith("minutes")) return kstStr.slice(0, 16).replace("T", " ");
     return kstStr.slice(0, 10);
   }
 
+  // 캔들+신호 데이터를 병렬 fetch 후 LightweightCharts 봉차트 렌더링
+  // 분봉은 fitContent(), 일봉 이상은 최근 365일 setVisibleRange()로 표시 범위 제한
   async function loadChart() {
     const market = document.getElementById("marketSelect").value;
     if (!market) return;
@@ -736,6 +742,8 @@
     }
   }
 
+  // 신호 API 응답을 LightweightCharts setMarkers() 형식으로 변환
+  // 분봉: KST datetime → unix timestamp 역매핑, 일봉: YYYY-MM-DD 문자열 그대로 사용
   function buildSignalMarkers(signalsData, candleData) {
     if (!signalsData || signalsData.error || !signalsData.historical_signals) return [];
 
@@ -804,6 +812,7 @@
     return markers;
   }
 
+  // 차트 탭 하단에 전략별 진입 신호 카드 렌더링 (신호 발생 시 컬러 하이라이트)
   function renderSignalCards(signalsData) {
     const container = document.getElementById("signalCardsContainer");
     const grid = document.getElementById("signalCardsGrid");
@@ -835,6 +844,7 @@
     container.style.display = "block";
   }
 
+  // 전략별 신호 상세 수치를 HTML 문자열로 반환 (카드 내부 표시용)
   function getSignalMetrics(sig) {
     const fmt = n => Number(n).toLocaleString("ko-KR");
     const d = sig.details || {};
@@ -873,6 +883,7 @@
   });
 
   // ── 탭 전환 ────────────────────────────────────────────
+  // 차트 / 백테스팅 탭 버튼 클릭 시 활성 tab-pane 전환
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -896,6 +907,7 @@
     BOLLINGER_BOUNCE: "전략: 종가가 볼린저 하단밴드 하향 후 복귀 시 다음 봉 시가 매수 → 종가가 중심선 도달 시 다음 봉 시가 매도",
   };
 
+  // 전략 선택 변경 시 해당 전략 전용 파라미터 컨트롤만 표시하고 결과 영역 초기화
   function onStrategyChange() {
     const strategy = document.getElementById("strategySelect").value;
     ["ctrl-k", "ctrl-rsi", "ctrl-ma", "ctrl-bb"].forEach(id => {
@@ -938,6 +950,7 @@
     days: "1일봉", weeks: "주봉", months: "월봉",
   };
 
+  // 백테스팅 실행 — 선택된 전략·타임프레임·파라미터로 API 호출 후 결과 렌더링
   async function runBacktest() {
     const market = document.getElementById("marketSelect").value;
     if (!market) return;
@@ -988,6 +1001,7 @@
     }
   }
 
+  // 백테스팅 결과의 현재 시그널 박스(진입신호/포지션보유/대기중) 렌더링
   function renderCurrentSignal(sig, strategy, fmt) {
     const signalBox   = document.getElementById("signalBox");
     const signalBadge = document.getElementById("signalBadge");
@@ -1040,6 +1054,7 @@
     signalDetail.innerHTML = html;
   }
 
+  // 백테스팅 결과 캔들 차트 렌더링 + 매수(초록 ▲)/매도(빨간 ▼) 마커 표시
   function renderBtCandleChart(d) {
     if (btCandleChart) { btCandleChart.remove(); btCandleChart = null; }
     if (!d.candles || d.candles.length === 0) return;
@@ -1096,6 +1111,7 @@
     });
   }
 
+  // 백테스팅 전체 결과 렌더링 — 캔들차트·시그널·통계카드·에쿼티커브·거래내역 순서로 표시
   function renderBacktest(d) {
     const fmt = n => Number(n).toLocaleString("ko-KR");
     const pct = n => (n * 100).toFixed(2) + "%";
@@ -1163,6 +1179,7 @@
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false, // 고정 높이 유지 — 마우스 오버 시 무한 축소 방지
           interaction: { mode: "index", intersect: false },
           plugins: {
             legend: { labels: { color: "#8b949e", font: { size: 12 } } },

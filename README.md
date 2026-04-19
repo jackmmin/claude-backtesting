@@ -1,4 +1,8 @@
 ### 2026-04-19
+* 손익그래프 마우스 오버 무한 축소 버그 수정 + 전체 주석 추가
+    - 문제:
+        - Chart.js: `responsive: true` + `maintainAspectRatio` 미설정 → 마우스 이벤트마다 높이 재계산
+        - `<canvas>` 태그에 고정 높이 없어 Chart.js가 임의로 줄여나감
 * 백테스팅 15분봉 캔들차트 미표시 + 손익그래프 축소 애니메이션 버그 수정
     - 문제1:
         - **캔들차트 미표시**: features/backtesting/index.js의 buildResult가 candles 데이터를 반환하지 않음
