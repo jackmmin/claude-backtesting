@@ -5,8 +5,9 @@ async function handle(req, res, query) {
   const k = parseFloat(query.k || 0.5);
   const interval = query.interval || "days";
   const count = parseInt(query.count || 200);
+  const initialCapital = parseInt(query.initial_capital || 1000000);
 
-  const data = await runBacktest({ market, k, interval, count });
+  const data = await runBacktest({ market, k, interval, count, initialCapital });
   res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(data));
 }

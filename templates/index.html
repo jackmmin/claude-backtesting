@@ -221,6 +221,9 @@
       width: 80px;
       text-align: center;
     }
+    .bt-controls input[type=number].wide {
+      width: 130px;
+    }
     .bt-controls input[type=number]:focus {
       outline: none;
       border-color: #58a6ff;
@@ -400,6 +403,10 @@
         <input type="number" id="candleCount" min="30" max="1000" step="10" value="200">
       </label>
       <label>
+        초기비용 (₩):
+        <input type="number" class="wide" id="initialCapital" min="1000" step="10000" value="1000000">
+      </label>
+      <label>
         K 값:
         <input type="range" id="kSlider" min="0.1" max="1.0" step="0.05" value="0.5">
         <span id="kValueDisplay">0.5</span>
@@ -445,6 +452,23 @@
           <div class="s-label">분석 캔들 수</div>
           <div class="s-value neutral" id="statCandles">-</div>
         </div>
+        <div class="stat-card">
+          <div class="s-label">초기 투자금</div>
+          <div class="s-value neutral" id="statInitial">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">최종 평가금</div>
+          <div class="s-value neutral" id="statFinal">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">순이익 / 손실</div>
+          <div class="s-value neutral" id="statProfitLoss">-</div>
+        </div>
+      </div>
+
+      <!-- 에쿼티 커브 -->
+      <div class="chart-wrap" style="margin-bottom:20px;">
+        <canvas id="equityChart"></canvas>
       </div>
 
       <!-- 최근 거래 내역 -->
@@ -457,6 +481,7 @@
               <th>진입가</th>
               <th>청산가</th>
               <th>수익률</th>
+              <th>손익 (₩)</th>
               <th>결과</th>
             </tr>
           </thead>
@@ -472,6 +497,7 @@
 
 <script>
   let chart = null;
+  let equityChart = null;
   let currentCount = 30;
 
   // ── 마켓 목록 로드 ──────────────────────────────────────
@@ -648,6 +674,7 @@
     const k = parseFloat(kSlider.value);
     const interval = document.getElementById("intervalSelect").value;
     const count = parseInt(document.getElementById("candleCount").value) || 200;
+    const initialCapital = parseInt(document.getElementById("initialCapital").value) || 1000000;
     const btn = document.getElementById("btRunBtn");
     btn.disabled = true;
     document.getElementById("btLoadingMsg").style.display = "block";
@@ -656,7 +683,7 @@
     document.getElementById("btResult").style.display = "none";
 
     try {
-      const res = await fetch(`/api/backtesting?market=${market}&k=${k}&interval=${interval}&count=${count}`);
+      const res = await fetch(`/api/backtesting?market=${market}&k=${k}&interval=${interval}&count=${count}&initial_capital=${initialCapital}`);
       const data = await res.json();
 
       if (data.error) {
@@ -718,6 +745,74 @@
     setVal("statTotalReturn", (d.total_return >= 0 ? "+" : "") + pct(d.total_return),
            d.total_return >= 0 ? "pos" : "neg");
     setVal("statCandles", d.total_candles + "개", "neutral");
+    setVal("statInitial", fmt(d.initial_capital) + " ₩", "neutral");
+    setVal("statFinal", fmt(d.final_value) + " ₩", d.profit_loss >= 0 ? "pos" : "neg");
+    setVal("statProfitLoss",
+      (d.profit_loss >= 0 ? "+" : "") + fmt(d.profit_loss) + " ₩",
+      d.profit_loss >= 0 ? "pos" : "neg");
+
+    // 에쿼티 커브 차트
+    if (equityChart) { equityChart.destroy(); equityChart = null; }
+    if (d.equity_curve && d.equity_curve.length > 0) {
+      const ecLabels = d.equity_curve.map(p => p.date);
+      const ecValues = d.equity_curve.map(p => p.value);
+      const isProfit = d.profit_loss >= 0;
+      const lineColor = isProfit ? "#3fb950" : "#f85149";
+
+      const ecCtx = document.getElementById("equityChart").getContext("2d");
+      equityChart = new Chart(ecCtx, {
+        type: "line",
+        data: {
+          labels: ecLabels,
+          datasets: [
+            {
+              label: "포트폴리오 가치",
+              data: ecValues,
+              borderColor: lineColor,
+              borderWidth: 2,
+              pointRadius: 0,
+              pointHoverRadius: 4,
+              fill: true,
+              backgroundColor: isProfit ? "rgba(63,185,80,0.15)" : "rgba(248,81,73,0.15)",
+              tension: 0.2,
+            },
+            {
+              label: "원금",
+              data: Array(ecValues.length).fill(d.initial_capital),
+              borderColor: "#8b949e",
+              borderWidth: 1,
+              borderDash: [6, 4],
+              pointRadius: 0,
+              fill: false,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: "index", intersect: false },
+          plugins: {
+            legend: { labels: { color: "#8b949e", font: { size: 12 } } },
+            tooltip: {
+              backgroundColor: "#161b22",
+              borderColor: "#30363d",
+              borderWidth: 1,
+              titleColor: "#8b949e",
+              bodyColor: "#e6edf3",
+              callbacks: {
+                label: ctx => " " + Number(ctx.parsed.y).toLocaleString("ko-KR") + " ₩",
+              },
+            },
+          },
+          scales: {
+            x: { ticks: { color: "#8b949e", maxTicksLimit: 10 }, grid: { color: "#21262d" } },
+            y: {
+              ticks: { color: "#8b949e", callback: v => Number(v).toLocaleString("ko-KR") },
+              grid: { color: "#21262d" },
+            },
+          },
+        },
+      });
+    }
 
     // 거래 내역 (최신 순으로 표시)
     const tbody = document.getElementById("tradesBody");
@@ -728,6 +823,7 @@
         <td>${fmt(t.buy_price)} ₩</td>
         <td>${fmt(t.sell_price)} ₩</td>
         <td style="color:${t.pnl >= 0 ? '#3fb950' : '#f85149'}">${(t.pnl >= 0 ? "+" : "") + pct(t.pnl)}</td>
+        <td style="color:${t.krw_pnl >= 0 ? '#3fb950' : '#f85149'}">${(t.krw_pnl >= 0 ? "+" : "") + fmt(t.krw_pnl)} ₩</td>
         <td style="color:${t.win ? '#3fb950' : '#f85149'}">${t.win ? "✓ 수익" : "✗ 손실"}</td>
       </tr>
     `).join("");

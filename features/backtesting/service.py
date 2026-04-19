@@ -3,7 +3,7 @@ from exchanges import get_exchange
 MIN_CANDLES = 30
 
 
-def run_backtest(exchange="upbit", market="KRW-BTC", k=0.5, interval="days", count=200):
+def run_backtest(exchange="upbit", market="KRW-BTC", k=0.5, interval="days", count=200, initial_capital=1000000):
     exch = get_exchange(exchange)
 
     candles = exch.get_candles_bulk(market, count=count, interval=interval)
@@ -13,10 +13,10 @@ def run_backtest(exchange="upbit", market="KRW-BTC", k=0.5, interval="days", cou
             "error": f"데이터 부족: {len(candles)}개 수집 (최소 {MIN_CANDLES}개 필요)"
         }
 
-    return _k_volatility_backtest(candles, k=k)
+    return _k_volatility_backtest(candles, k=k, initial_capital=initial_capital)
 
 
-def _k_volatility_backtest(candles, k=0.5):
+def _k_volatility_backtest(candles, k=0.5, initial_capital=1000000):
     # Upbit returns newest-first; reverse to chronological order
     data = list(reversed(candles))
 
@@ -69,6 +69,10 @@ def _k_volatility_backtest(candles, k=0.5):
             "win_rate": 0,
             "avg_pnl_per_trade": 0,
             "total_return": 0,
+            "initial_capital": initial_capital,
+            "final_value": initial_capital,
+            "profit_loss": 0,
+            "equity_curve": [],
             "current_signal": current_signal,
             "trades": [],
         }
@@ -78,9 +82,23 @@ def _k_volatility_backtest(candles, k=0.5):
     avg_pnl = sum(t["pnl"] for t in trades) / len(trades)
 
     cumulative = 1.0
+    equity_curve = []
     for t in trades:
         cumulative *= 1 + t["pnl"]
+        equity_curve.append({
+            "date": t["date"],
+            "value": round(initial_capital * cumulative),
+        })
     total_return = cumulative - 1
+    final_value = round(initial_capital * cumulative)
+    profit_loss = final_value - initial_capital
+
+    # attach per-trade krw profit/loss
+    portfolio = initial_capital
+    for t in trades:
+        prev_portfolio = portfolio
+        portfolio = round(portfolio * (1 + t["pnl"]))
+        t["krw_pnl"] = portfolio - prev_portfolio
 
     return {
         "strategy": "K_VOLATILITY_BREAKOUT",
@@ -90,6 +108,10 @@ def _k_volatility_backtest(candles, k=0.5):
         "win_rate": round(win_rate, 4),
         "avg_pnl_per_trade": round(avg_pnl, 6),
         "total_return": round(total_return, 4),
+        "initial_capital": initial_capital,
+        "final_value": final_value,
+        "profit_loss": profit_loss,
+        "equity_curve": equity_curve,
         "current_signal": current_signal,
         "trades": trades[-30:],
     }

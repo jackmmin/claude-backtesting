@@ -2,17 +2,17 @@ const { getCandlesBulk } = require("../../exchanges/upbit/candles");
 
 const MIN_CANDLES = 30;
 
-async function runBacktest({ market = "KRW-BTC", k = 0.5, interval = "days", count = 200 } = {}) {
+async function runBacktest({ market = "KRW-BTC", k = 0.5, interval = "days", count = 200, initialCapital = 1000000 } = {}) {
   const candles = await getCandlesBulk(market, count, interval);
 
   if (candles.length < MIN_CANDLES) {
     return { error: `데이터 부족: ${candles.length}개 수집 (최소 ${MIN_CANDLES}개 필요)` };
   }
 
-  return kVolatilityBacktest(candles, k);
+  return kVolatilityBacktest(candles, k, initialCapital);
 }
 
-function kVolatilityBacktest(candles, k) {
+function kVolatilityBacktest(candles, k, initialCapital = 1000000) {
   // Upbit returns newest-first; reverse to chronological order
   const data = [...candles].reverse();
 
@@ -62,6 +62,8 @@ function kVolatilityBacktest(candles, k) {
       strategy: "K_VOLATILITY_BREAKOUT", k,
       total_candles: data.length, total_trades: 0,
       win_rate: 0, avg_pnl_per_trade: 0, total_return: 0,
+      initial_capital: initialCapital, final_value: initialCapital, profit_loss: 0,
+      equity_curve: [],
       current_signal: currentSignal, trades: [],
     };
   }
@@ -69,7 +71,17 @@ function kVolatilityBacktest(candles, k) {
   const wins = trades.filter((t) => t.win).length;
   const winRate = wins / trades.length;
   const avgPnl = trades.reduce((s, t) => s + t.pnl, 0) / trades.length;
-  const cumulative = trades.reduce((s, t) => s * (1 + t.pnl), 1);
+
+  let portfolio = initialCapital;
+  const equityCurve = [];
+  for (const t of trades) {
+    const prev = portfolio;
+    portfolio = Math.round(portfolio * (1 + t.pnl));
+    t.krw_pnl = portfolio - prev;
+    equityCurve.push({ date: t.date, value: portfolio });
+  }
+
+  const totalReturn = Math.round((portfolio / initialCapital - 1) * 1e4) / 1e4;
 
   return {
     strategy: "K_VOLATILITY_BREAKOUT",
@@ -78,7 +90,11 @@ function kVolatilityBacktest(candles, k) {
     total_trades: trades.length,
     win_rate: Math.round(winRate * 1e4) / 1e4,
     avg_pnl_per_trade: Math.round(avgPnl * 1e6) / 1e6,
-    total_return: Math.round((cumulative - 1) * 1e4) / 1e4,
+    total_return: totalReturn,
+    initial_capital: initialCapital,
+    final_value: portfolio,
+    profit_loss: portfolio - initialCapital,
+    equity_curve: equityCurve,
     current_signal: currentSignal,
     trades: trades.slice(-30),
   };
