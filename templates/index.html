@@ -758,7 +758,6 @@
            d.avg_pnl_per_trade >= 0 ? "pos" : "neg");
     setVal("statTotalReturn", (d.total_return >= 0 ? "+" : "") + pct(d.total_return),
            d.total_return >= 0 ? "pos" : "neg");
-    setVal("statCandles", d.total_candles + "개", "neutral");
     setVal("statInitial", fmt(d.initial_capital) + " ₩", "neutral money");
     setVal("statFinal", fmt(d.final_value) + " ₩", (d.profit_loss >= 0 ? "pos" : "neg") + " money");
     setVal("statProfitLoss",
