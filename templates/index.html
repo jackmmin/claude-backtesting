@@ -275,7 +275,7 @@
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(8, 1fr);
       gap: 12px;
       margin-bottom: 20px;
     }
@@ -437,6 +437,10 @@
       <!-- 통계 -->
       <div class="stats-grid">
         <div class="stat-card">
+          <div class="s-label">초기 투자금</div>
+          <div class="s-value neutral" id="statInitial">-</div>
+        </div>
+        <div class="stat-card">
           <div class="s-label">총 거래 횟수</div>
           <div class="s-value neutral" id="statTrades">-</div>
         </div>
@@ -445,28 +449,20 @@
           <div class="s-value neutral" id="statWinRate">-</div>
         </div>
         <div class="stat-card">
-          <div class="s-label">평균 수익률 / 건</div>
-          <div class="s-value neutral" id="statAvgPnl">-</div>
-        </div>
-        <div class="stat-card">
           <div class="s-label">누적 수익률</div>
           <div class="s-value neutral" id="statTotalReturn">-</div>
         </div>
         <div class="stat-card">
-          <div class="s-label">분석 캔들 수</div>
-          <div class="s-value neutral" id="statCandles">-</div>
-        </div>
-        <div class="stat-card">
-          <div class="s-label">초기 투자금</div>
-          <div class="s-value neutral" id="statInitial">-</div>
-        </div>
-        <div class="stat-card">
-          <div class="s-label">최종 평가금</div>
-          <div class="s-value neutral" id="statFinal">-</div>
+          <div class="s-label">평균 수익률 / 건</div>
+          <div class="s-value neutral" id="statAvgPnl">-</div>
         </div>
         <div class="stat-card">
           <div class="s-label">순이익 / 손실</div>
           <div class="s-value neutral" id="statProfitLoss">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">최종 평가금</div>
+          <div class="s-value neutral" id="statFinal">-</div>
         </div>
       </div>
 
