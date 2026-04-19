@@ -83,16 +83,6 @@
       color: #fff;
     }
 
-    .period-btns {
-      display: flex;
-      gap: 6px;
-    }
-
-    .period-btns button {
-      padding: 6px 14px;
-      font-size: 0.82rem;
-    }
-
     .ticker-bar {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -364,13 +354,6 @@
   <div class="tab-pane active" id="tab-chart">
     <div class="controls">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <div class="period-btns">
-          <button data-count="7"  class="period-btn">7</button>
-          <button data-count="30" class="period-btn active">30</button>
-          <button data-count="90" class="period-btn">90</button>
-          <button data-count="180" class="period-btn">180</button>
-          <button data-count="365" class="period-btn">365</button>
-        </div>
         <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;color:#8b949e;">
           타임프레임:
           <select id="chartIntervalSelect">
@@ -519,7 +502,6 @@
 <script>
   let chart = null;
   let equityChart = null;
-  let currentPeriodDays = 30;
 
   // ── 마켓 목록 로드 ──────────────────────────────────────
   async function loadMarkets() {
@@ -675,15 +657,12 @@
       title: "최저 " + Number(minLow).toLocaleString("ko-KR"),
     });
 
-    // 신호 마커 (분봉은 일별 신호 미매칭이므로 일봉 이상에서만 표시)
-    if (!isMinute) {
-      const markers = buildSignalMarkers(signalsData, candleData);
-      if (markers.length > 0) candleSeries.setMarkers(markers);
-    }
+    const markers = buildSignalMarkers(signalsData, candleData);
+    if (markers.length > 0) candleSeries.setMarkers(markers);
 
-    // 선택된 기간(일수)만큼 표시 범위 설정
+    // 최근 365일 범위 표시
     const nowMs = Date.now();
-    const fromMs = nowMs - currentPeriodDays * 86400 * 1000;
+    const fromMs = nowMs - 365 * 86400 * 1000;
     if (isMinute) {
       chart.timeScale().setVisibleRange({
         from: Math.floor(fromMs / 1000),
@@ -710,7 +689,6 @@
   function buildSignalMarkers(signalsData, candleData) {
     if (!signalsData || signalsData.error || !signalsData.historical_signals) return [];
 
-    const candleTimeSet = new Set(candleData.map(c => c.time));
     const strategyShort = {
       K_VOLATILITY_BREAKOUT: "K",
       RSI_OVERSOLD_BOUNCE:   "RSI",
@@ -718,11 +696,23 @@
       BOLLINGER_BOUNCE:      "BB",
     };
 
+    // 분봉 여부 감지: time이 숫자(unix timestamp)면 분봉
+    const isMinuteData = typeof candleData[0]?.time === "number";
+    const dateToTs = {};
+    if (isMinuteData) {
+      for (const c of candleData) {
+        // KST(+9h) 기준 날짜 추출
+        const dateStr = new Date(c.time * 1000 + 9 * 3600 * 1000).toISOString().slice(0, 10);
+        if (!dateToTs[dateStr]) dateToTs[dateStr] = c.time;
+      }
+    }
+
     const byDate = {};
     for (const hist of signalsData.historical_signals) {
-      if (!candleTimeSet.has(hist.date)) continue;
-      if (!byDate[hist.date]) byDate[hist.date] = [];
-      for (const s of hist.strategies) byDate[hist.date].push(s);
+      const key = isMinuteData ? dateToTs[hist.date] : hist.date;
+      if (!key) continue;
+      if (!byDate[key]) byDate[key] = [];
+      for (const s of hist.strategies) byDate[key].push(s);
     }
 
     const markers = [];
@@ -806,15 +796,6 @@
 
   document.getElementById("chartIntervalSelect").addEventListener("change", () => {
     loadChart();
-  });
-
-  document.querySelectorAll(".period-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".period-btn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      currentPeriodDays = parseInt(btn.dataset.count);
-      loadChart();
-    });
   });
 
   // ── 탭 전환 ────────────────────────────────────────────
