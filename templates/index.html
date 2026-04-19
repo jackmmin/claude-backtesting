@@ -167,6 +167,153 @@
       padding: 24px;
       margin-top: 12px;
     }
+
+    /* ── 탭 ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #30363d;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #8b949e;
+      padding: 10px 20px;
+      font-size: 0.9rem;
+      border-radius: 0;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .tab-btn:hover { color: #e6edf3; border-color: #58a6ff; }
+    .tab-btn.active { color: #58a6ff; border-color: #58a6ff; }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── 백테스팅 ── */
+    .bt-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .bt-controls label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #8b949e;
+      font-size: 0.88rem;
+    }
+    .bt-controls input[type=range] {
+      accent-color: #58a6ff;
+      width: 120px;
+    }
+    #kValueDisplay {
+      min-width: 30px;
+      color: #e6edf3;
+      font-weight: 700;
+    }
+    .bt-run-btn {
+      background: #1c6ef3;
+      border-color: #1c6ef3;
+      color: #fff;
+      font-weight: 600;
+    }
+    .bt-run-btn:hover { background: #388bfd; border-color: #388bfd; }
+    .bt-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .signal-box {
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .signal-box.triggered {
+      background: rgba(63,185,80,0.1);
+      border: 1px solid #3fb950;
+    }
+    .signal-box.waiting {
+      background: rgba(139,148,158,0.08);
+      border: 1px solid #30363d;
+    }
+    .signal-badge {
+      font-size: 1.1rem;
+      font-weight: 800;
+      padding: 6px 18px;
+      border-radius: 20px;
+    }
+    .signal-badge.long { background: #3fb950; color: #0d1117; }
+    .signal-badge.wait { background: #30363d; color: #8b949e; }
+    .signal-detail { font-size: 0.88rem; color: #8b949e; line-height: 1.7; }
+    .signal-detail span { color: #e6edf3; font-weight: 600; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 14px 18px;
+    }
+    .stat-card .s-label { font-size: 0.75rem; color: #8b949e; margin-bottom: 4px; }
+    .stat-card .s-value { font-size: 1.2rem; font-weight: 700; }
+    .s-value.pos { color: #3fb950; }
+    .s-value.neg { color: #f85149; }
+    .s-value.neutral { color: #e6edf3; }
+
+    .trades-table-wrap {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .trades-table-wrap h3 {
+      padding: 14px 18px;
+      font-size: 0.9rem;
+      color: #8b949e;
+      border-bottom: 1px solid #30363d;
+      font-weight: 600;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    th {
+      padding: 10px 14px;
+      color: #8b949e;
+      font-weight: 500;
+      text-align: right;
+      border-bottom: 1px solid #21262d;
+    }
+    th:first-child { text-align: left; }
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid #21262d;
+      text-align: right;
+      color: #e6edf3;
+    }
+    td:first-child { text-align: left; color: #8b949e; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(88,166,255,0.04); }
+
+    #btLoadingMsg {
+      text-align: center;
+      padding: 40px;
+      color: #8b949e;
+      display: none;
+    }
+    #btResult { display: none; }
   </style>
 </head>
 <body>
@@ -178,34 +325,116 @@
 
 <div class="container">
 
-  <div class="controls">
+  <!-- 마켓 선택 (공통) -->
+  <div class="controls" style="margin-bottom:8px;">
     <select id="marketSelect">
       <option value="">마켓 불러오는 중...</option>
     </select>
+  </div>
 
-    <div class="period-btns">
-      <button data-count="7"  class="period-btn">7일</button>
-      <button data-count="30" class="period-btn active">30일</button>
-      <button data-count="90" class="period-btn">90일</button>
-      <button data-count="180" class="period-btn">180일</button>
-      <button data-count="365" class="period-btn">1년</button>
+  <!-- 탭 -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="chart">차트</button>
+    <button class="tab-btn" data-tab="backtesting">백테스팅 (K변동성 돌파)</button>
+  </div>
+
+  <!-- 차트 탭 -->
+  <div class="tab-pane active" id="tab-chart">
+    <div class="controls">
+      <div class="period-btns">
+        <button data-count="7"  class="period-btn">7일</button>
+        <button data-count="30" class="period-btn active">30일</button>
+        <button data-count="90" class="period-btn">90일</button>
+        <button data-count="180" class="period-btn">180일</button>
+        <button data-count="365" class="period-btn">1년</button>
+      </div>
+    </div>
+
+    <div class="ticker-bar" id="tickerBar">
+      <div class="ticker-card"><div class="label">현재가</div><div class="value neutral" id="t-price">-</div></div>
+      <div class="ticker-card"><div class="label">전일 대비</div><div class="value neutral" id="t-change">-</div></div>
+      <div class="ticker-card"><div class="label">등락률</div><div class="value neutral" id="t-rate">-</div></div>
+      <div class="ticker-card"><div class="label">24h 거래대금</div><div class="value neutral" id="t-vol">-</div></div>
+      <div class="ticker-card"><div class="label">52주 최고</div><div class="value neutral" id="t-high52">-</div></div>
+      <div class="ticker-card"><div class="label">52주 최저</div><div class="value neutral" id="t-low52">-</div></div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="loading-overlay" id="loader">
+        <div class="spinner"></div> 데이터 로딩 중...
+      </div>
+      <canvas id="chart"></canvas>
     </div>
   </div>
 
-  <div class="ticker-bar" id="tickerBar">
-    <div class="ticker-card"><div class="label">현재가</div><div class="value neutral" id="t-price">-</div></div>
-    <div class="ticker-card"><div class="label">전일 대비</div><div class="value neutral" id="t-change">-</div></div>
-    <div class="ticker-card"><div class="label">등락률</div><div class="value neutral" id="t-rate">-</div></div>
-    <div class="ticker-card"><div class="label">24h 거래대금</div><div class="value neutral" id="t-vol">-</div></div>
-    <div class="ticker-card"><div class="label">52주 최고</div><div class="value neutral" id="t-high52">-</div></div>
-    <div class="ticker-card"><div class="label">52주 최저</div><div class="value neutral" id="t-low52">-</div></div>
-  </div>
-
-  <div class="chart-wrap">
-    <div class="loading-overlay" id="loader">
-      <div class="spinner"></div> 데이터 로딩 중...
+  <!-- 백테스팅 탭 -->
+  <div class="tab-pane" id="tab-backtesting">
+    <div class="bt-controls">
+      <label>
+        K 값:
+        <input type="range" id="kSlider" min="0.1" max="1.0" step="0.05" value="0.5">
+        <span id="kValueDisplay">0.5</span>
+      </label>
+      <button class="bt-run-btn" id="btRunBtn">백테스팅 실행</button>
     </div>
-    <canvas id="chart"></canvas>
+
+    <p style="font-size:0.8rem;color:#8b949e;margin-bottom:18px;">
+      1일봉 기준 최소 365개 캔들 데이터로 분석 · 전략: 오늘 시가 + K × 전일 변동폭 돌파 시 롱 진입 → 다음 날 시가 청산
+    </p>
+
+    <div id="btLoadingMsg">
+      <div class="spinner" style="margin:0 auto 12px;"></div>
+      365일 캔들 데이터 수집 중... (약 5~10초 소요)
+    </div>
+
+    <div id="btResult">
+      <!-- 현재 시그널 -->
+      <div class="signal-box" id="signalBox">
+        <div class="signal-badge" id="signalBadge">-</div>
+        <div class="signal-detail" id="signalDetail"></div>
+      </div>
+
+      <!-- 통계 -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="s-label">총 거래 횟수</div>
+          <div class="s-value neutral" id="statTrades">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">승률</div>
+          <div class="s-value neutral" id="statWinRate">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">평균 수익률 / 건</div>
+          <div class="s-value neutral" id="statAvgPnl">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">누적 수익률</div>
+          <div class="s-value neutral" id="statTotalReturn">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="s-label">분석 캔들 수</div>
+          <div class="s-value neutral" id="statCandles">-</div>
+        </div>
+      </div>
+
+      <!-- 최근 거래 내역 -->
+      <div class="trades-table-wrap">
+        <h3>최근 거래 내역 (최대 30건)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>날짜</th>
+              <th>진입가</th>
+              <th>청산가</th>
+              <th>수익률</th>
+              <th>결과</th>
+            </tr>
+          </thead>
+          <tbody id="tradesBody"></tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -347,7 +576,10 @@
   }
 
   // ── 이벤트 바인딩 ───────────────────────────────────────
-  document.getElementById("marketSelect").addEventListener("change", loadChart);
+  document.getElementById("marketSelect").addEventListener("change", () => {
+    const activeTab = document.querySelector(".tab-pane.active").id;
+    if (activeTab === "tab-chart") loadChart();
+  });
 
   document.querySelectorAll(".period-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -357,6 +589,111 @@
       loadChart();
     });
   });
+
+  // ── 탭 전환 ────────────────────────────────────────────
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    });
+  });
+
+  // ── 백테스팅 ────────────────────────────────────────────
+  const kSlider = document.getElementById("kSlider");
+  const kDisplay = document.getElementById("kValueDisplay");
+  kSlider.addEventListener("input", () => { kDisplay.textContent = kSlider.value; });
+
+  document.getElementById("btRunBtn").addEventListener("click", runBacktest);
+
+  async function runBacktest() {
+    const market = document.getElementById("marketSelect").value;
+    if (!market) return;
+
+    const k = parseFloat(kSlider.value);
+    const btn = document.getElementById("btRunBtn");
+    btn.disabled = true;
+    document.getElementById("btLoadingMsg").style.display = "block";
+    document.getElementById("btResult").style.display = "none";
+
+    try {
+      const res = await fetch(`/api/backtesting?market=${market}&k=${k}&interval=days`);
+      const data = await res.json();
+
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+
+      renderBacktest(data);
+      document.getElementById("btResult").style.display = "block";
+    } catch (e) {
+      alert("백테스팅 오류: " + e.message);
+    } finally {
+      btn.disabled = false;
+      document.getElementById("btLoadingMsg").style.display = "none";
+    }
+  }
+
+  function renderBacktest(d) {
+    const fmt = n => Number(n).toLocaleString("ko-KR");
+    const pct = n => (n * 100).toFixed(2) + "%";
+
+    // 현재 시그널
+    const sig = d.current_signal;
+    const signalBox = document.getElementById("signalBox");
+    const signalBadge = document.getElementById("signalBadge");
+    const signalDetail = document.getElementById("signalDetail");
+
+    if (sig && sig.triggered) {
+      signalBox.className = "signal-box triggered";
+      signalBadge.className = "signal-badge long";
+      signalBadge.textContent = "LONG 진입";
+    } else {
+      signalBox.className = "signal-box waiting";
+      signalBadge.className = "signal-badge wait";
+      signalBadge.textContent = "대기 중";
+    }
+
+    if (sig) {
+      signalDetail.innerHTML = `
+        <div>날짜: <span>${sig.date}</span></div>
+        <div>시가: <span>${fmt(sig.open)} ₩</span></div>
+        <div>전일 변동폭 × K: <span>${fmt(sig.prev_range)} × ${sig.k} = ${fmt(Math.round(sig.prev_range * sig.k))} ₩</span></div>
+        <div>목표가 (진입 조건): <span>${fmt(sig.target_price)} ₩</span></div>
+        <div>현재가: <span>${fmt(sig.current_price)} ₩</span></div>
+      `;
+    }
+
+    // 통계
+    const setVal = (id, text, cls) => {
+      const el = document.getElementById(id);
+      el.textContent = text;
+      el.className = "s-value " + cls;
+    };
+
+    setVal("statTrades", d.total_trades + "건", "neutral");
+    setVal("statWinRate", pct(d.win_rate), d.win_rate >= 0.5 ? "pos" : "neg");
+    setVal("statAvgPnl", (d.avg_pnl_per_trade >= 0 ? "+" : "") + pct(d.avg_pnl_per_trade),
+           d.avg_pnl_per_trade >= 0 ? "pos" : "neg");
+    setVal("statTotalReturn", (d.total_return >= 0 ? "+" : "") + pct(d.total_return),
+           d.total_return >= 0 ? "pos" : "neg");
+    setVal("statCandles", d.total_candles + "개", "neutral");
+
+    // 거래 내역 (최신 순으로 표시)
+    const tbody = document.getElementById("tradesBody");
+    const trades = [...d.trades].reverse();
+    tbody.innerHTML = trades.map(t => `
+      <tr>
+        <td>${t.date}</td>
+        <td>${fmt(t.buy_price)} ₩</td>
+        <td>${fmt(t.sell_price)} ₩</td>
+        <td style="color:${t.pnl >= 0 ? '#3fb950' : '#f85149'}">${(t.pnl >= 0 ? "+" : "") + pct(t.pnl)}</td>
+        <td style="color:${t.win ? '#3fb950' : '#f85149'}">${t.win ? "✓ 수익" : "✗ 손실"}</td>
+      </tr>
+    `).join("");
+  }
 
   // ── 초기 로드 ────────────────────────────────────────────
   loadMarkets();

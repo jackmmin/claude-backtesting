@@ -8,6 +8,7 @@ const routes = [
   require("./features/markets/routes"),
   require("./features/candles/routes"),
   require("./features/ticker/routes"),
+  require("./features/backtesting/routes"),
 ];
 
 const server = http.createServer(async (req, res) => {

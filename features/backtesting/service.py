@@ -1,0 +1,96 @@
+from exchanges import get_exchange
+
+MIN_CANDLES = {"days": 365}
+
+
+def run_backtest(exchange="upbit", market="KRW-BTC", k=0.5, interval="days"):
+    min_required = MIN_CANDLES.get(interval, 365)
+    exch = get_exchange(exchange)
+
+    candles = exch.get_candles_bulk(market, count=min_required)
+
+    if len(candles) < min_required:
+        return {
+            "error": f"데이터 부족: {len(candles)}개 수집 (최소 {min_required}개 필요)"
+        }
+
+    return _k_volatility_backtest(candles, k=k)
+
+
+def _k_volatility_backtest(candles, k=0.5):
+    # Upbit returns newest-first; reverse to chronological order
+    data = list(reversed(candles))
+
+    trades = []
+    for i in range(1, len(data) - 1):
+        prev = data[i - 1]
+        curr = data[i]
+        next_day = data[i + 1]
+
+        prev_range = prev["high_price"] - prev["low_price"]
+        if prev_range <= 0:
+            continue
+
+        target = curr["opening_price"] + k * prev_range
+
+        if curr["high_price"] >= target:
+            sell = next_day["opening_price"]
+            pnl = (sell - target) / target
+            trades.append({
+                "date": curr["candle_date_time_kst"][:10],
+                "buy_price": round(target),
+                "sell_price": round(sell),
+                "pnl": round(pnl, 6),
+                "win": pnl > 0,
+            })
+
+    # Current signal using the last two candles
+    current_signal = None
+    if len(data) >= 2:
+        prev = data[-2]
+        curr = data[-1]
+        prev_range = prev["high_price"] - prev["low_price"]
+        target = curr["opening_price"] + k * prev_range
+        current_signal = {
+            "date": curr["candle_date_time_kst"][:10],
+            "open": curr["opening_price"],
+            "prev_range": round(prev_range),
+            "target_price": round(target),
+            "current_price": curr["trade_price"],
+            "triggered": curr["high_price"] >= target,
+            "k": k,
+        }
+
+    if not trades:
+        return {
+            "strategy": "K_VOLATILITY_BREAKOUT",
+            "k": k,
+            "total_candles": len(data),
+            "total_trades": 0,
+            "win_rate": 0,
+            "avg_pnl_per_trade": 0,
+            "total_return": 0,
+            "current_signal": current_signal,
+            "trades": [],
+        }
+
+    wins = sum(1 for t in trades if t["win"])
+    win_rate = wins / len(trades)
+    avg_pnl = sum(t["pnl"] for t in trades) / len(trades)
+
+    cumulative = 1.0
+    for t in trades:
+        cumulative *= 1 + t["pnl"]
+    total_return = cumulative - 1
+
+    return {
+        "strategy": "K_VOLATILITY_BREAKOUT",
+        "k": k,
+        "total_candles": len(data),
+        "total_trades": len(trades),
+        "win_rate": round(win_rate, 4),
+        "avg_pnl_per_trade": round(avg_pnl, 6),
+        "total_return": round(total_return, 4),
+        "current_signal": current_signal,
+        "trades": trades[-30:],
+    }

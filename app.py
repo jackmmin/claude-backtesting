@@ -2,11 +2,13 @@ from flask import Flask, render_template
 from features.markets.routes import markets_bp
 from features.candles.routes import candles_bp
 from features.ticker.routes import ticker_bp
+from features.backtesting.routes import backtesting_bp
 
 app = Flask(__name__)
 app.register_blueprint(markets_bp)
 app.register_blueprint(candles_bp)
 app.register_blueprint(ticker_bp)
+app.register_blueprint(backtesting_bp)
 
 
 @app.route("/")

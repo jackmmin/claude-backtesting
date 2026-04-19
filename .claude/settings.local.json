@@ -9,7 +9,9 @@
       "Bash(git fetch *)",
       "Bash(node -e \"require\\('./routes/upbit'\\); require\\('./api/upbit/index'\\); console.log\\('모듈 로드 성공'\\)\")",
       "Bash(grep -E \"\\\\.\\(js|py|json|html|css|md\\)$\")",
-      "Bash(node -e \"require\\('./exchanges'\\); require\\('./features/markets/routes'\\); require\\('./features/candles/routes'\\); require\\('./features/ticker/routes'\\); console.log\\('모듈 로드 성공'\\)\")"
+      "Bash(node -e \"require\\('./exchanges'\\); require\\('./features/markets/routes'\\); require\\('./features/candles/routes'\\); require\\('./features/ticker/routes'\\); console.log\\('모듈 로드 성공'\\)\")",
+      "Bash(node -e ' *)",
+      "Bash(python -c ' *)"
     ]
   },
   "model": "sonnet"
