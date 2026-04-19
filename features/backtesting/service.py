@@ -43,7 +43,7 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
         prev = data[i - 1]
         curr = data[i]
 
-        prev_range = prev["trade_price"] - prev["low_price"]
+        prev_range = prev["high_price"] - prev["low_price"]
         if prev_range <= 0:
             continue
 
@@ -73,7 +73,7 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
     if len(data) >= 2:
         prev = data[-2]
         curr = data[-1]
-        prev_range = prev["trade_price"] - prev["low_price"]
+        prev_range = prev["high_price"] - prev["low_price"]
         target = curr["opening_price"] + k * prev_range
         current_signal = {
             "date": curr["candle_date_time_kst"][:16],

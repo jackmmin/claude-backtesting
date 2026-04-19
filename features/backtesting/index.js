@@ -35,7 +35,7 @@ function kVolatilityBacktest(data, k, initialCapital) {
   for (let i = 1; i < data.length; i++) {
     const prev = data[i - 1];
     const curr = data[i];
-    const prevRange = prev.trade_price - prev.low_price;
+    const prevRange = prev.high_price - prev.low_price;
     if (prevRange <= 0) continue;
     const target = curr.opening_price + k * prevRange;
     if (curr.high_price >= target) {
@@ -52,7 +52,7 @@ function kVolatilityBacktest(data, k, initialCapital) {
   if (data.length >= 2) {
     const prev = data[data.length - 2];
     const curr = data[data.length - 1];
-    const prevRange = prev.trade_price - prev.low_price;
+    const prevRange = prev.high_price - prev.low_price;
     const target = curr.opening_price + k * prevRange;
     currentSignal = { date: curr.candle_date_time_kst.slice(0, 16), open: curr.opening_price, prev_range: Math.round(prevRange), target_price: Math.round(target), current_price: curr.trade_price, triggered: curr.high_price >= target, in_trade: false, k };
   }
