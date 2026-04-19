@@ -517,12 +517,13 @@
 
       <!-- 최근 거래 내역 -->
       <div class="trades-table-wrap">
-        <h3>최근 거래 내역 (최대 50건)</h3>
+        <h3 id="tradesTitle">최근 거래 내역</h3>
         <table>
           <thead>
             <tr>
-              <th>진입일시</th>
-              <th>청산일시</th>
+              <th style="text-align:center">#</th>
+              <th style="text-align:left">진입일시</th>
+              <th style="text-align:left">청산일시</th>
               <th>진입가</th>
               <th>청산가</th>
               <th>수익률</th>
@@ -1005,10 +1006,12 @@
     // 거래 내역 (최신 순 50건 표시)
     const tbody = document.getElementById("tradesBody");
     const trades = [...d.trades].reverse().slice(0, 50);
-    tbody.innerHTML = trades.map(t => `
+    document.getElementById("tradesTitle").textContent = `최근 거래 내역 (${trades.length}건)`;
+    tbody.innerHTML = trades.map((t, idx) => `
       <tr>
-        <td>${(t.buy_datetime || "").slice(0, 16).replace("T", " ")}</td>
-        <td>${(t.sell_datetime || "").slice(0, 16).replace("T", " ")}</td>
+        <td style="text-align:center;color:#8b949e">${trades.length - idx}</td>
+        <td style="text-align:left;color:#8b949e">${(t.buy_datetime || "").slice(0, 16).replace("T", " ")}</td>
+        <td style="text-align:left;color:#8b949e">${(t.sell_datetime || "").slice(0, 16).replace("T", " ")}</td>
         <td>${fmt(t.buy_price)} ₩</td>
         <td>${fmt(t.sell_price)} ₩</td>
         <td style="color:${t.pnl >= 0 ? '#3fb950' : '#f85149'}">${(t.pnl >= 0 ? "+" : "") + pct(t.pnl)}</td>
