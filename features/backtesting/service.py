@@ -22,12 +22,14 @@ def run_backtest(
     data = list(reversed(candles))
 
     if strategy == "K_VOLATILITY_BREAKOUT":
-        # K변동성 돌파는 타임프레임 무관하게 1일봉 데이터로 백테스팅
+        # K변동성 돌파는 타임프레임 무관하게 1일봉 데이터로 백테스팅, 캔들차트는 선택 타임프레임 표시
         day_candles = exch.get_candles_bulk(market, count=count, interval="days")
         if len(day_candles) < MIN_CANDLES:
             return {"error": f"일봉 데이터 부족: {len(day_candles)}개 수집 (최소 {MIN_CANDLES}개 필요)"}
         day_data = list(reversed(day_candles))
-        return _k_volatility_backtest(day_data, k=k, initial_capital=initial_capital)
+        display_candles = data if interval != "days" else None
+        return _k_volatility_backtest(day_data, k=k, initial_capital=initial_capital,
+                                      display_candles=display_candles)
     if strategy == "RSI_OVERSOLD_BOUNCE":
         return _rsi_oversold_backtest(data, period=rsi_period, threshold=rsi_threshold,
                                       exit_threshold=rsi_exit, initial_capital=initial_capital)
@@ -40,19 +42,19 @@ def run_backtest(
 
 # ── K변동성 돌파 ──────────────────────────────────────────────────────────────
 
-def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
+def _k_volatility_backtest(data, k=0.5, initial_capital=1000000, display_candles=None):
     trades = []
     for i in range(1, len(data) - 1):
         prev = data[i - 1]
         curr = data[i]
         next_day = data[i + 1]
 
-        prev_range = prev["high_price"] - prev["low_price"]
+        prev_range = prev["trade_price"] - prev["low_price"]
         if prev_range <= 0:
             continue
 
         target = curr["opening_price"] + k * prev_range
-        if curr["high_price"] >= target:
+        if curr["trade_price"] >= target:
             sell = next_day["opening_price"]
             pnl = (sell - target) / target
             trades.append({
@@ -69,7 +71,7 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
     if len(data) >= 2:
         prev = data[-2]
         curr = data[-1]
-        prev_range = prev["high_price"] - prev["low_price"]
+        prev_range = prev["trade_price"] - prev["low_price"]
         target = curr["opening_price"] + k * prev_range
         current_signal = {
             "date": curr["candle_date_time_kst"][:10],
@@ -77,13 +79,15 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
             "prev_range": round(prev_range),
             "target_price": round(target),
             "current_price": curr["trade_price"],
-            "triggered": curr["high_price"] >= target,
+            "triggered": curr["trade_price"] >= target,
             "in_trade": False,
             "k": k,
         }
 
+    # 캔들차트는 display_candles(선택 타임프레임)이 있으면 그것을, 없으면 day_data를 사용
+    chart_candles = display_candles if display_candles is not None else data
     return _build_result("K_VOLATILITY_BREAKOUT", trades, initial_capital, current_signal,
-                         candles=data, k=k, total_candles=len(data))
+                         candles=chart_candles, k=k, total_candles=len(data))
 
 
 # ── RSI 과매도 반등 ────────────────────────────────────────────────────────────

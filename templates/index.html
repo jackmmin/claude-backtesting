@@ -1072,13 +1072,12 @@
       grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
       rightPriceScale: { borderColor: "#30363d", scaleMargins: { top: 0.1, bottom: 0.1 } },
-      timeScale: { borderColor: "#30363d", timeVisible: isMinute, secondsVisible: false },
+      timeScale: { borderColor: "#30363d", timeVisible: true, secondsVisible: false },
     });
 
+    // 타임스탬프 기준으로 항상 Unix timestamp 사용 (일봉도 포함)
     const candleData = d.candles.map(c => ({
-      time: isMinute
-        ? Math.floor(new Date(c.t).getTime() / 1000)
-        : c.t.slice(0, 10),
+      time: Math.floor(new Date(c.t).getTime() / 1000),
       open: c.o, high: c.h, low: c.l, close: c.c,
     }));
 
@@ -1089,15 +1088,20 @@
     });
     series.setData(candleData);
 
-    // 진입/청산 마커
+    // 진입/청산 마커 — 마커 datetime을 캔들 타임스탬프 중 가장 가까운 값으로 매핑
+    const candleTimes = candleData.map(c => c.time);
+    const snapToCandle = (ts) => {
+      let best = candleTimes[0], bestDiff = Math.abs(candleTimes[0] - ts);
+      for (const t of candleTimes) {
+        const diff = Math.abs(t - ts);
+        if (diff < bestDiff) { best = t; bestDiff = diff; }
+      }
+      return best;
+    };
     const markers = [];
     for (const m of (d.trade_markers || [])) {
-      const buyTime = isMinute
-        ? Math.floor(new Date(m.buy_datetime).getTime() / 1000)
-        : m.buy_datetime.slice(0, 10);
-      const sellTime = isMinute
-        ? Math.floor(new Date(m.sell_datetime).getTime() / 1000)
-        : m.sell_datetime.slice(0, 10);
+      const buyTime  = snapToCandle(Math.floor(new Date(m.buy_datetime).getTime() / 1000));
+      const sellTime = snapToCandle(Math.floor(new Date(m.sell_datetime).getTime() / 1000));
       markers.push({ time: buyTime,  position: "belowBar", color: "#3fb950", shape: "arrowUp",   text: "매수" });
       markers.push({ time: sellTime, position: "aboveBar", color: "#f85149", shape: "arrowDown", text: "매도" });
     }
