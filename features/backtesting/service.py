@@ -22,7 +22,12 @@ def run_backtest(
     data = list(reversed(candles))
 
     if strategy == "K_VOLATILITY_BREAKOUT":
-        return _k_volatility_backtest(data, k=k, initial_capital=initial_capital)
+        # K변동성 돌파는 타임프레임 무관하게 1일봉 데이터로 백테스팅
+        day_candles = exch.get_candles_bulk(market, count=count, interval="days")
+        if len(day_candles) < MIN_CANDLES:
+            return {"error": f"일봉 데이터 부족: {len(day_candles)}개 수집 (최소 {MIN_CANDLES}개 필요)"}
+        day_data = list(reversed(day_candles))
+        return _k_volatility_backtest(day_data, k=k, initial_capital=initial_capital)
     if strategy == "RSI_OVERSOLD_BOUNCE":
         return _rsi_oversold_backtest(data, period=rsi_period, threshold=rsi_threshold,
                                       exit_threshold=rsi_exit, initial_capital=initial_capital)
@@ -105,7 +110,7 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=50, ini
                 if i + 1 < len(data):
                     entry_price = data[i + 1]["opening_price"]
                     entry_date = data[i]["candle_date_time_kst"][:10]
-                    entry_datetime = data[i]["candle_date_time_kst"]
+                    entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
                     in_trade = True
         else:
             if rsi_curr >= exit_threshold:
@@ -166,7 +171,7 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
                 if i + 1 < len(data):
                     entry_price = data[i + 1]["opening_price"]
                     entry_date = data[i]["candle_date_time_kst"][:10]
-                    entry_datetime = data[i]["candle_date_time_kst"]
+                    entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
                     in_trade = True
         else:
             if ma_fast_prev >= ma_slow_prev and ma_fast_curr < ma_slow_curr:
@@ -235,7 +240,7 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
                 if i + 1 < len(data):
                     entry_price = data[i + 1]["opening_price"]
                     entry_date = data[i]["candle_date_time_kst"][:10]
-                    entry_datetime = data[i]["candle_date_time_kst"]
+                    entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
                     in_trade = True
         else:
             if curr_close >= middle:

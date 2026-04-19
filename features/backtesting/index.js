@@ -17,7 +17,15 @@ async function runBacktest({
   }
   const data = [...candles].reverse();
 
-  if (strategy === "K_VOLATILITY_BREAKOUT") return kVolatilityBacktest(data, k, initialCapital);
+  if (strategy === "K_VOLATILITY_BREAKOUT") {
+    // K변동성 돌파는 타임프레임 무관하게 1일봉 데이터로 백테스팅
+    const dayCandles = await getCandlesBulk(market, count, "days");
+    if (dayCandles.length < MIN_CANDLES) {
+      return { error: `일봉 데이터 부족: ${dayCandles.length}개 수집 (최소 ${MIN_CANDLES}개 필요)` };
+    }
+    const dayData = [...dayCandles].reverse();
+    return kVolatilityBacktest(dayData, k, initialCapital);
+  }
   if (strategy === "RSI_OVERSOLD_BOUNCE") return rsiOversoldBacktest(data, rsiPeriod, rsiThreshold, rsiExit, initialCapital);
   if (strategy === "MA_GOLDEN_CROSS") return maGoldenCrossBacktest(data, maFast, maSlow, initialCapital);
   if (strategy === "BOLLINGER_BOUNCE") return bollingerBounceBacktest(data, bbPeriod, bbStd, initialCapital);
