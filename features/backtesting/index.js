@@ -1,6 +1,7 @@
 const { getCandlesBulk } = require("../../exchanges/upbit/candles");
 
 const MIN_CANDLES = 30;
+const FEE_RATE = 0.0005;  // 매수/매도 각 0.05% 수수료
 
 async function runBacktest({
   market = "KRW-BTC",
@@ -45,9 +46,11 @@ function kVolatilityBacktest(data, k, initialCapital) {
     const target = curr.opening_price + k * prevRange;
     if (curr.high_price >= target) {
       // 종가 10분 전(당일 23:50 KST) 청산 → 당일 종가로 근사
-      const sell = curr.trade_price;
-      const pnl = (sell - target) / target;
-      trades.push({ date: curr.candle_date_time_kst.slice(0, 16), buy_datetime: curr.candle_date_time_kst, sell_datetime: curr.candle_date_time_kst.slice(0, 10) + " 23:50:00", buy_price: Math.round(target), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+      const buyCost = target * (1 + FEE_RATE);   // 매수 수수료 반영
+      const rawSell = curr.trade_price;
+      const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영
+      const pnl = (sell - buyCost) / buyCost;
+      trades.push({ date: curr.candle_date_time_kst.slice(0, 16), buy_datetime: curr.candle_date_time_kst, sell_datetime: curr.candle_date_time_kst.slice(0, 10) + " 23:50:00", buy_price: Math.round(target), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
     }
   }
   let currentSignal = null;
@@ -76,7 +79,7 @@ function rsiOversoldBacktest(data, period, threshold, exitThreshold, initialCapi
     if (!inTrade) {
       if (rsiCurr < threshold && (rsiPrev === null || rsiPrev >= threshold)) {
         if (i + 1 < data.length) {
-          entryPrice = data[i + 1].opening_price;
+          entryPrice = data[i + 1].opening_price * (1 + FEE_RATE);  // 매수 수수료 반영
           entryDate = data[i].candle_date_time_kst.slice(0, 10);
           entryDatetime = data[i + 1].candle_date_time_kst;
           inTrade = true;
@@ -85,9 +88,10 @@ function rsiOversoldBacktest(data, period, threshold, exitThreshold, initialCapi
     } else {
       if (rsiCurr >= exitThreshold) {
         if (i + 1 < data.length) {
-          const sell = data[i + 1].opening_price;
+          const rawSell = data[i + 1].opening_price;
+          const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영
           const pnl = (sell - entryPrice) / entryPrice;
-          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
           inTrade = false;
         }
       }
@@ -122,14 +126,15 @@ function maGoldenCrossBacktest(data, fast, slow, initialCapital) {
 
     if (!inTrade) {
       if (maFastPrev <= maSlowPrev && maFastCurr > maSlowCurr) {
-        if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price; entryDate = data[i].candle_date_time_kst.slice(0, 10); entryDatetime = data[i + 1].candle_date_time_kst; inTrade = true; }
+        if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price * (1 + FEE_RATE); entryDate = data[i].candle_date_time_kst.slice(0, 10); entryDatetime = data[i + 1].candle_date_time_kst; inTrade = true; }
       }
     } else {
       if (maFastPrev >= maSlowPrev && maFastCurr < maSlowCurr) {
         if (i + 1 < data.length) {
-          const sell = data[i + 1].opening_price;
+          const rawSell = data[i + 1].opening_price;
+          const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영
           const pnl = (sell - entryPrice) / entryPrice;
-          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
           inTrade = false;
         }
       }
@@ -167,14 +172,15 @@ function bollingerBounceBacktest(data, period, stdMult, initialCapital) {
 
     if (!inTrade) {
       if (prev < lower && curr >= lower) {
-        if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price; entryDate = data[i].candle_date_time_kst.slice(0, 10); entryDatetime = data[i + 1].candle_date_time_kst; inTrade = true; }
+        if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price * (1 + FEE_RATE); entryDate = data[i].candle_date_time_kst.slice(0, 10); entryDatetime = data[i + 1].candle_date_time_kst; inTrade = true; }
       }
     } else {
       if (curr >= middle) {
         if (i + 1 < data.length) {
-          const sell = data[i + 1].opening_price;
+          const rawSell = data[i + 1].opening_price;
+          const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영
           const pnl = (sell - entryPrice) / entryPrice;
-          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
           inTrade = false;
         }
       }

@@ -2,6 +2,7 @@ import statistics
 from exchanges import get_exchange
 
 MIN_CANDLES = 30
+FEE_RATE = 0.0005  # 매수/매도 각 0.05% 수수료
 
 
 def run_backtest(
@@ -57,14 +58,16 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000, display_candles
         # 당일 고가가 목표가 이상일 때 진입 (고가 기준으로 look-ahead bias 방지)
         if curr["high_price"] >= target:
             # 종가 10분 전(당일 23:50 KST) 청산 → 당일 종가로 근사
-            sell = curr["trade_price"]
-            pnl = (sell - target) / target
+            buy_cost = target * (1 + FEE_RATE)   # 매수 수수료 반영
+            raw_sell = curr["trade_price"]
+            sell = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
+            pnl = (sell - buy_cost) / buy_cost
             trades.append({
                 "date": curr["candle_date_time_kst"][:16],
                 "buy_datetime": curr["candle_date_time_kst"],
                 "sell_datetime": curr["candle_date_time_kst"][:10] + " 23:50:00",
-                "buy_price": round(target),
-                "sell_price": round(sell),
+                "buy_price": round(target),   # 표시용: 수수료 전 목표가
+                "sell_price": round(raw_sell),  # 표시용: 수수료 전 종가
                 "pnl": round(pnl, 6),
                 "win": pnl > 0,
             })
@@ -114,21 +117,22 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=50, ini
         if not in_trade:
             if rsi_curr < threshold and (rsi_prev is None or rsi_prev >= threshold):
                 if i + 1 < len(data):
-                    entry_price = data[i + 1]["opening_price"]
+                    entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)  # 매수 수수료 반영
                     entry_date = data[i]["candle_date_time_kst"][:10]
                     entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
                     in_trade = True
         else:
             if rsi_curr >= exit_threshold:
                 if i + 1 < len(data):
-                    sell_price = data[i + 1]["opening_price"]
+                    raw_sell = data[i + 1]["opening_price"]
+                    sell_price = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
                     pnl = (sell_price - entry_price) / entry_price
                     trades.append({
                         "date": entry_date,
                         "buy_datetime": entry_datetime,
                         "sell_datetime": data[i]["candle_date_time_kst"],
-                        "buy_price": round(entry_price),
-                        "sell_price": round(sell_price),
+                        "buy_price": round(entry_price / (1 + FEE_RATE)),  # 표시용: 수수료 전 가격
+                        "sell_price": round(raw_sell),  # 표시용: 수수료 전 가격
                         "pnl": round(pnl, 6),
                         "win": pnl > 0,
                     })
@@ -175,21 +179,22 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
         if not in_trade:
             if ma_fast_prev <= ma_slow_prev and ma_fast_curr > ma_slow_curr:
                 if i + 1 < len(data):
-                    entry_price = data[i + 1]["opening_price"]
+                    entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)  # 매수 수수료 반영
                     entry_date = data[i]["candle_date_time_kst"][:10]
                     entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
                     in_trade = True
         else:
             if ma_fast_prev >= ma_slow_prev and ma_fast_curr < ma_slow_curr:
                 if i + 1 < len(data):
-                    sell_price = data[i + 1]["opening_price"]
+                    raw_sell = data[i + 1]["opening_price"]
+                    sell_price = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
                     pnl = (sell_price - entry_price) / entry_price
                     trades.append({
                         "date": entry_date,
                         "buy_datetime": entry_datetime,
                         "sell_datetime": data[i]["candle_date_time_kst"],
-                        "buy_price": round(entry_price),
-                        "sell_price": round(sell_price),
+                        "buy_price": round(entry_price / (1 + FEE_RATE)),  # 표시용: 수수료 전 가격
+                        "sell_price": round(raw_sell),  # 표시용: 수수료 전 가격
                         "pnl": round(pnl, 6),
                         "win": pnl > 0,
                     })
@@ -244,21 +249,22 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
         if not in_trade:
             if prev_close < lower and curr_close >= lower:
                 if i + 1 < len(data):
-                    entry_price = data[i + 1]["opening_price"]
+                    entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)  # 매수 수수료 반영
                     entry_date = data[i]["candle_date_time_kst"][:10]
                     entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
                     in_trade = True
         else:
             if curr_close >= middle:
                 if i + 1 < len(data):
-                    sell_price = data[i + 1]["opening_price"]
+                    raw_sell = data[i + 1]["opening_price"]
+                    sell_price = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
                     pnl = (sell_price - entry_price) / entry_price
                     trades.append({
                         "date": entry_date,
                         "buy_datetime": entry_datetime,
                         "sell_datetime": data[i]["candle_date_time_kst"],
-                        "buy_price": round(entry_price),
-                        "sell_price": round(sell_price),
+                        "buy_price": round(entry_price / (1 + FEE_RATE)),  # 표시용: 수수료 전 가격
+                        "sell_price": round(raw_sell),  # 표시용: 수수료 전 가격
                         "pnl": round(pnl, 6),
                         "win": pnl > 0,
                     })
