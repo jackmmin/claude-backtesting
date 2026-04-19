@@ -509,6 +509,14 @@
         </div>
       </div>
 
+      <!-- 백테스팅 캔들 차트 -->
+      <div class="chart-wrap" style="margin-bottom:20px;">
+        <div style="font-size:0.8rem;color:#8b949e;margin-bottom:10px;font-weight:600;letter-spacing:0.5px;">
+          캔들 차트 <span style="font-weight:400;">▲ 매수 진입 &nbsp; ▼ 매도 청산</span>
+        </div>
+        <div id="btCandleChart" style="height:360px;"></div>
+      </div>
+
       <!-- 에쿼티 커브 -->
       <div class="chart-wrap" style="margin-bottom:20px;">
         <canvas id="equityChart"></canvas>
@@ -541,6 +549,7 @@
 <script>
   let chart = null;
   let equityChart = null;
+  let btCandleChart = null;
 
   // ── 마켓 목록 로드 ──────────────────────────────────────
   async function loadMarkets() {
@@ -1031,9 +1040,68 @@
     signalDetail.innerHTML = html;
   }
 
+  function renderBtCandleChart(d) {
+    if (btCandleChart) { btCandleChart.remove(); btCandleChart = null; }
+    if (!d.candles || d.candles.length === 0) return;
+
+    const interval = document.getElementById("intervalSelect").value;
+    const isMinute = interval.startsWith("minutes");
+
+    const container = document.getElementById("btCandleChart");
+    container.innerHTML = "";
+
+    btCandleChart = LightweightCharts.createChart(container, {
+      width: container.clientWidth,
+      height: 360,
+      layout: { background: { type: "solid", color: "#161b22" }, textColor: "#8b949e" },
+      grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      rightPriceScale: { borderColor: "#30363d", scaleMargins: { top: 0.1, bottom: 0.1 } },
+      timeScale: { borderColor: "#30363d", timeVisible: isMinute, secondsVisible: false },
+    });
+
+    const candleData = d.candles.map(c => ({
+      time: isMinute
+        ? Math.floor(new Date(c.t).getTime() / 1000)
+        : c.t.slice(0, 10),
+      open: c.o, high: c.h, low: c.l, close: c.c,
+    }));
+
+    const series = btCandleChart.addCandlestickSeries({
+      upColor: "#3fb950", downColor: "#f85149",
+      borderUpColor: "#3fb950", borderDownColor: "#f85149",
+      wickUpColor: "#3fb950", wickDownColor: "#f85149",
+    });
+    series.setData(candleData);
+
+    // 진입/청산 마커
+    const markers = [];
+    for (const m of (d.trade_markers || [])) {
+      const buyTime = isMinute
+        ? Math.floor(new Date(m.buy_datetime).getTime() / 1000)
+        : m.buy_datetime.slice(0, 10);
+      const sellTime = isMinute
+        ? Math.floor(new Date(m.sell_datetime).getTime() / 1000)
+        : m.sell_datetime.slice(0, 10);
+      markers.push({ time: buyTime,  position: "belowBar", color: "#3fb950", shape: "arrowUp",   text: "매수" });
+      markers.push({ time: sellTime, position: "aboveBar", color: "#f85149", shape: "arrowDown", text: "매도" });
+    }
+    markers.sort((a, b) => (a.time > b.time ? 1 : -1));
+    if (markers.length > 0) series.setMarkers(markers);
+
+    btCandleChart.timeScale().fitContent();
+
+    window.addEventListener("resize", () => {
+      if (btCandleChart) btCandleChart.applyOptions({ width: container.clientWidth });
+    });
+  }
+
   function renderBacktest(d) {
     const fmt = n => Number(n).toLocaleString("ko-KR");
     const pct = n => (n * 100).toFixed(2) + "%";
+
+    // 캔들 차트
+    renderBtCandleChart(d);
 
     // 현재 시그널
     renderCurrentSignal(d.current_signal, d.strategy, fmt);

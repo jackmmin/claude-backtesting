@@ -52,6 +52,8 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
             pnl = (sell - target) / target
             trades.append({
                 "date": curr["candle_date_time_kst"][:10],
+                "buy_datetime": curr["candle_date_time_kst"],
+                "sell_datetime": next_day["candle_date_time_kst"],
                 "buy_price": round(target),
                 "sell_price": round(sell),
                 "pnl": round(pnl, 6),
@@ -76,7 +78,7 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
         }
 
     return _build_result("K_VOLATILITY_BREAKOUT", trades, initial_capital, current_signal,
-                         k=k, total_candles=len(data))
+                         candles=data, k=k, total_candles=len(data))
 
 
 # ── RSI 과매도 반등 ────────────────────────────────────────────────────────────
@@ -86,6 +88,7 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=50, ini
     in_trade = False
     entry_price = None
     entry_date = None
+    entry_datetime = None
 
     for i in range(period + 1, len(data)):
         closes_curr = [c["trade_price"] for c in data[:i + 1]]
@@ -102,6 +105,7 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=50, ini
                 if i + 1 < len(data):
                     entry_price = data[i + 1]["opening_price"]
                     entry_date = data[i]["candle_date_time_kst"][:10]
+                    entry_datetime = data[i]["candle_date_time_kst"]
                     in_trade = True
         else:
             if rsi_curr >= exit_threshold:
@@ -110,6 +114,8 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=50, ini
                     pnl = (sell_price - entry_price) / entry_price
                     trades.append({
                         "date": entry_date,
+                        "buy_datetime": entry_datetime,
+                        "sell_datetime": data[i]["candle_date_time_kst"],
                         "buy_price": round(entry_price),
                         "sell_price": round(sell_price),
                         "pnl": round(pnl, 6),
@@ -130,7 +136,7 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=50, ini
     }
 
     return _build_result("RSI_OVERSOLD_BOUNCE", trades, initial_capital, current_signal,
-                         rsi_period=period, rsi_threshold=threshold, rsi_exit=exit_threshold,
+                         candles=data, rsi_period=period, rsi_threshold=threshold, rsi_exit=exit_threshold,
                          total_candles=len(data))
 
 
@@ -141,6 +147,7 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
     in_trade = False
     entry_price = None
     entry_date = None
+    entry_datetime = None
 
     for i in range(slow + 1, len(data)):
         closes_curr = [c["trade_price"] for c in data[:i + 1]]
@@ -159,6 +166,7 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
                 if i + 1 < len(data):
                     entry_price = data[i + 1]["opening_price"]
                     entry_date = data[i]["candle_date_time_kst"][:10]
+                    entry_datetime = data[i]["candle_date_time_kst"]
                     in_trade = True
         else:
             if ma_fast_prev >= ma_slow_prev and ma_fast_curr < ma_slow_curr:
@@ -167,6 +175,8 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
                     pnl = (sell_price - entry_price) / entry_price
                     trades.append({
                         "date": entry_date,
+                        "buy_datetime": entry_datetime,
+                        "sell_datetime": data[i]["candle_date_time_kst"],
                         "buy_price": round(entry_price),
                         "sell_price": round(sell_price),
                         "pnl": round(pnl, 6),
@@ -195,7 +205,7 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
     }
 
     return _build_result("MA_GOLDEN_CROSS", trades, initial_capital, current_signal,
-                         ma_fast=fast, ma_slow=slow, total_candles=len(data))
+                         candles=data, ma_fast=fast, ma_slow=slow, total_candles=len(data))
 
 
 # ── 볼린저밴드 반등 ────────────────────────────────────────────────────────────
@@ -205,6 +215,7 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
     in_trade = False
     entry_price = None
     entry_date = None
+    entry_datetime = None
 
     for i in range(period + 1, len(data)):
         closes = [c["trade_price"] for c in data[:i + 1]]
@@ -224,6 +235,7 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
                 if i + 1 < len(data):
                     entry_price = data[i + 1]["opening_price"]
                     entry_date = data[i]["candle_date_time_kst"][:10]
+                    entry_datetime = data[i]["candle_date_time_kst"]
                     in_trade = True
         else:
             if curr_close >= middle:
@@ -232,6 +244,8 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
                     pnl = (sell_price - entry_price) / entry_price
                     trades.append({
                         "date": entry_date,
+                        "buy_datetime": entry_datetime,
+                        "sell_datetime": data[i]["candle_date_time_kst"],
                         "buy_price": round(entry_price),
                         "sell_price": round(sell_price),
                         "pnl": round(pnl, 6),
@@ -258,12 +272,19 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
     }
 
     return _build_result("BOLLINGER_BOUNCE", trades, initial_capital, current_signal,
-                         bb_period=period, bb_std=std_mult, total_candles=len(data))
+                         candles=data, bb_period=period, bb_std=std_mult, total_candles=len(data))
 
 
 # ── 공통 결과 빌더 ─────────────────────────────────────────────────────────────
 
-def _build_result(strategy, trades, initial_capital, current_signal, **extra):
+def _build_result(strategy, trades, initial_capital, current_signal, candles=None, **extra):
+    candle_data = []
+    if candles:
+        candle_data = [
+            {"t": c["candle_date_time_kst"], "o": c["opening_price"],
+             "h": c["high_price"], "l": c["low_price"], "c": c["trade_price"]}
+            for c in candles
+        ]
     base = {
         "strategy": strategy,
         "total_trades": 0,
@@ -276,6 +297,7 @@ def _build_result(strategy, trades, initial_capital, current_signal, **extra):
         "equity_curve": [],
         "current_signal": current_signal,
         "trades": [],
+        "candles": candle_data,
     }
     base.update(extra)
 
@@ -296,6 +318,11 @@ def _build_result(strategy, trades, initial_capital, current_signal, **extra):
 
     total_return = portfolio / initial_capital - 1
 
+    trade_markers = [
+        {"buy_datetime": t["buy_datetime"], "sell_datetime": t["sell_datetime"], "win": t["win"]}
+        for t in trades
+        if "buy_datetime" in t and "sell_datetime" in t
+    ]
     base.update({
         "total_trades": len(trades),
         "win_rate": round(win_rate, 4),
@@ -305,6 +332,7 @@ def _build_result(strategy, trades, initial_capital, current_signal, **extra):
         "profit_loss": portfolio - initial_capital,
         "equity_curve": equity_curve,
         "trades": trades[-30:],
+        "trade_markers": trade_markers,
     })
     return base
 
