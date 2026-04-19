@@ -524,7 +524,7 @@
 
       <!-- 최근 거래 내역 -->
       <div class="trades-table-wrap">
-        <h3>최근 거래 내역 (최대 30건)</h3>
+        <h3>최근 거래 내역 (최대 50건)</h3>
         <table>
           <thead>
             <tr>
@@ -1217,12 +1217,12 @@
       });
     }
 
-    // 거래 내역 (최신 순으로 표시)
+    // 거래 내역 (최신 순 50건 표시)
     const tbody = document.getElementById("tradesBody");
-    const trades = [...d.trades].reverse();
+    const trades = [...d.trades].reverse().slice(0, 50);
     tbody.innerHTML = trades.map(t => `
       <tr>
-        <td>${t.date}</td>
+        <td>${t.date || t.buy_datetime?.slice(0, 16) || ""}</td>
         <td>${fmt(t.buy_price)} ₩</td>
         <td>${fmt(t.sell_price)} ₩</td>
         <td style="color:${t.pnl >= 0 ? '#3fb950' : '#f85149'}">${(t.pnl >= 0 ? "+" : "") + pct(t.pnl)}</td>

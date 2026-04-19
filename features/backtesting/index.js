@@ -40,22 +40,23 @@ function kVolatilityBacktest(data, k, initialCapital) {
     const prev = data[i - 1];
     const curr = data[i];
     const nextDay = data[i + 1];
-    const prevRange = prev.low_price - prev.low_price;
+    const prevRange = prev.trade_price - prev.low_price;
     if (prevRange <= 0) continue;
     const target = curr.opening_price + k * prevRange;
     if (curr.high_price >= target) {
-      const sell = nextDay.opening_price;
+      // 종가 10분 전(당일 23:50 KST) 청산 → 당일 종가로 근사
+      const sell = curr.trade_price;
       const pnl = (sell - target) / target;
-      trades.push({ date: curr.candle_date_time_kst.slice(0, 10), buy_datetime: curr.candle_date_time_kst, sell_datetime: nextDay.candle_date_time_kst, buy_price: Math.round(target), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+      trades.push({ date: curr.candle_date_time_kst.slice(0, 16), buy_datetime: curr.candle_date_time_kst, sell_datetime: curr.candle_date_time_kst.slice(0, 10) + " 23:50:00", buy_price: Math.round(target), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
     }
   }
   let currentSignal = null;
   if (data.length >= 2) {
     const prev = data[data.length - 2];
     const curr = data[data.length - 1];
-    const prevRange = prev.low_price - prev.low_price;
+    const prevRange = prev.trade_price - prev.low_price;
     const target = curr.opening_price + k * prevRange;
-    currentSignal = { date: curr.candle_date_time_kst.slice(0, 10), open: curr.opening_price, prev_range: Math.round(prevRange), target_price: Math.round(target), current_price: curr.trade_price, triggered: curr.high_price >= target, in_trade: false, k };
+    currentSignal = { date: curr.candle_date_time_kst.slice(0, 16), open: curr.opening_price, prev_range: Math.round(prevRange), target_price: Math.round(target), current_price: curr.trade_price, triggered: curr.high_price >= target, in_trade: false, k };
   }
   return buildResult("K_VOLATILITY_BREAKOUT", trades, initialCapital, currentSignal, data, { k, total_candles: data.length });
 }
@@ -232,7 +233,7 @@ function buildResult(strategy, trades, initialCapital, currentSignal, candles = 
     final_value: portfolio,
     profit_loss: portfolio - initialCapital,
     equity_curve: equityCurve,
-    trades: trades.slice(-30),
+    trades: trades.slice(-50),
     trade_markers: tradeMarkers,
   };
 }

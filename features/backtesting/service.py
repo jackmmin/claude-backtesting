@@ -54,13 +54,15 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000, display_candles
             continue
 
         target = curr["opening_price"] + k * prev_range
-        if curr["trade_price"] >= target:
-            sell = next_day["opening_price"]
+        # 당일 고가가 목표가 이상일 때 진입 (고가 기준으로 look-ahead bias 방지)
+        if curr["high_price"] >= target:
+            # 종가 10분 전(당일 23:50 KST) 청산 → 당일 종가로 근사
+            sell = curr["trade_price"]
             pnl = (sell - target) / target
             trades.append({
-                "date": curr["candle_date_time_kst"][:10],
+                "date": curr["candle_date_time_kst"][:16],
                 "buy_datetime": curr["candle_date_time_kst"],
-                "sell_datetime": next_day["candle_date_time_kst"],
+                "sell_datetime": curr["candle_date_time_kst"][:10] + " 23:50:00",
                 "buy_price": round(target),
                 "sell_price": round(sell),
                 "pnl": round(pnl, 6),
@@ -74,12 +76,12 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000, display_candles
         prev_range = prev["trade_price"] - prev["low_price"]
         target = curr["opening_price"] + k * prev_range
         current_signal = {
-            "date": curr["candle_date_time_kst"][:10],
+            "date": curr["candle_date_time_kst"][:16],
             "open": curr["opening_price"],
             "prev_range": round(prev_range),
             "target_price": round(target),
             "current_price": curr["trade_price"],
-            "triggered": curr["trade_price"] >= target,
+            "triggered": curr["high_price"] >= target,
             "in_trade": False,
             "k": k,
         }
@@ -340,7 +342,7 @@ def _build_result(strategy, trades, initial_capital, current_signal, candles=Non
         "final_value": portfolio,
         "profit_loss": portfolio - initial_capital,
         "equity_curve": equity_curve,
-        "trades": trades[-30:],
+        "trades": trades[-50:],
         "trade_markers": trade_markers,
     })
     return base
