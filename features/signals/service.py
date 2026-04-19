@@ -12,18 +12,20 @@ def calculate_signals(exchange="upbit", market="KRW-BTC", count=200, interval="d
         return {"error": f"데이터 부족: {len(candles)}개 (최소 {MIN_CANDLES}개 필요)"}
 
     data = list(reversed(candles))
+    is_minute = interval.startswith("minutes")
 
     signals = [
         _calc_k_volatility_signal(data),
-        _calc_rsi_signal(data),
+        _calc_rsi_signal(data, is_minute=is_minute),
         _calc_ma_golden_cross_signal(data),
         _calc_bollinger_bounce_signal(data),
     ]
 
-    historical_signals = _find_historical_signals(data)
+    historical_signals = _find_historical_signals(data, is_minute=is_minute)
 
     return {
         "market": market,
+        "interval": interval,
         "signals": signals,
         "historical_signals": historical_signals,
     }
@@ -51,7 +53,7 @@ def _calc_k_volatility_signal(data, k=0.5):
     }
 
 
-def _calc_rsi_signal(data, period=14, threshold=30):
+def _calc_rsi_signal(data, period=14, threshold=30, is_minute=False):
     closes = [c["trade_price"] for c in data]
     rsi_curr = _rsi(closes, period)
     rsi_prev = _rsi(closes[:-1], period)
@@ -68,12 +70,13 @@ def _calc_rsi_signal(data, period=14, threshold=30):
     triggered = rsi_curr < threshold and (rsi_prev is None or rsi_prev >= threshold)
     desc = f"RSI {rsi_curr:.1f} ({'과매도 반등' if triggered else '과매도' if rsi_curr < threshold else '정상 범위'})"
 
+    period_label = "봉" if is_minute else "일봉"
     return {
         "strategy": "RSI_OVERSOLD_BOUNCE",
         "name": "RSI 과매도 반등",
         "triggered": triggered,
         "description": desc,
-        "details": {"rsi_value": round(rsi_curr, 2), "threshold": threshold, "period": period},
+        "details": {"rsi_value": round(rsi_curr, 2), "threshold": threshold, "period": period, "period_label": period_label},
     }
 
 
@@ -158,8 +161,8 @@ def _calc_bollinger_bounce_signal(data, period=20, std_mult=2.0):
     }
 
 
-def _find_historical_signals(data, k=0.5):
-    date_map = {}
+def _find_historical_signals(data, k=0.5, is_minute=False):
+    signal_map = {}
 
     for i in range(1, len(data) - 1):
         window = data[:i + 1]
@@ -201,10 +204,15 @@ def _find_historical_signals(data, k=0.5):
                 triggered_strategies.append("BOLLINGER_BOUNCE")
 
         if triggered_strategies:
-            date = curr["candle_date_time_kst"][:10]
-            date_map[date] = triggered_strategies
+            kst = curr["candle_date_time_kst"]
+            # 분봉: 전체 datetime을 키로 사용(봉 단위 정밀도), 일봉 이상: 날짜만
+            key = kst if is_minute else kst[:10]
+            signal_map[key] = triggered_strategies
 
-    return [{"date": d, "strategies": s} for d, s in sorted(date_map.items(), reverse=True)]
+    items = sorted(signal_map.items(), reverse=True)
+    if is_minute:
+        return [{"datetime": dt, "date": dt[:10], "strategies": s} for dt, s in items]
+    return [{"datetime": None, "date": d, "strategies": s} for d, s in items]
 
 
 def _sma(values, period):

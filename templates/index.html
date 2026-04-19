@@ -613,6 +613,7 @@
     document.getElementById("loader").classList.remove("hidden");
     document.getElementById("signalCardsContainer").style.display = "none";
 
+    try {
     const [candleRes, signalsRes] = await Promise.all([
       fetch(`/api/candles?market=${market}&count=1000&interval=${interval}`),
       fetch(`/api/signals?market=${market}&count=1000&interval=${interval}`),
@@ -699,15 +700,12 @@
     const markers = buildSignalMarkers(signalsData, candleData);
     if (markers.length > 0) candleSeries.setMarkers(markers);
 
-    // 최근 365일 범위 표시
-    const nowMs = Date.now();
-    const fromMs = nowMs - 365 * 86400 * 1000;
+    // 표시 범위 설정: 분봉은 보유 데이터 전체 표시, 일봉 이상은 최근 365일
     if (isMinute) {
-      chart.timeScale().setVisibleRange({
-        from: Math.floor(fromMs / 1000),
-        to:   Math.floor(nowMs / 1000),
-      });
+      chart.timeScale().fitContent();
     } else {
+      const nowMs = Date.now();
+      const fromMs = nowMs - 365 * 86400 * 1000;
       chart.timeScale().setVisibleRange({
         from: new Date(fromMs).toISOString().slice(0, 10),
         to:   new Date(nowMs).toISOString().slice(0, 10),
@@ -723,6 +721,10 @@
     if (signalsData && !signalsData.error) {
       renderSignalCards(signalsData);
     }
+    } catch (err) {
+      console.error("loadChart error:", err);
+      document.getElementById("loader").classList.add("hidden");
+    }
   }
 
   function buildSignalMarkers(signalsData, candleData) {
@@ -737,18 +739,41 @@
 
     // 분봉 여부 감지: time이 숫자(unix timestamp)면 분봉
     const isMinuteData = typeof candleData[0]?.time === "number";
-    const dateToTs = {};
+
+    // 분봉: KST datetime 문자열 → unix timestamp 맵 (봉 단위 정밀도)
+    // 일봉 이상: 날짜 문자열 → 날짜 문자열 (그대로 사용)
+    const datetimeToKey = {};
     if (isMinuteData) {
       for (const c of candleData) {
-        // KST(+9h) 기준 날짜 추출
-        const dateStr = new Date(c.time * 1000 + 9 * 3600 * 1000).toISOString().slice(0, 10);
-        if (!dateToTs[dateStr]) dateToTs[dateStr] = c.time;
+        // c.time은 KST datetime으로 만든 unix ts이므로 역산하여 KST 문자열 복원
+        const kstMs = c.time * 1000;
+        const kstDate = new Date(kstMs + 9 * 3600 * 1000);
+        const dtStr = kstDate.toISOString().slice(0, 19).replace("T", "T"); // "2026-04-19T14:35:00"
+        datetimeToKey[dtStr] = c.time;
+        // 초 단위 변형에 대응: "2026-04-19T14:35:00" 형태로 저장
       }
     }
 
     const byDate = {};
     for (const hist of signalsData.historical_signals) {
-      const key = isMinuteData ? dateToTs[hist.date] : hist.date;
+      let key;
+      if (isMinuteData) {
+        // 분봉: hist.datetime (예: "2026-04-19T14:35:00") → unix timestamp
+        if (hist.datetime) {
+          // KST datetime 문자열을 unix ts로 변환
+          const dtNorm = hist.datetime.replace(" ", "T").slice(0, 19);
+          key = datetimeToKey[dtNorm];
+          // 직접 매핑 안되면 날짜 기반 fallback
+          if (key === undefined) {
+            const dateStr = dtNorm.slice(0, 10);
+            for (const [dt, ts] of Object.entries(datetimeToKey)) {
+              if (dt.startsWith(dateStr)) { key = ts; break; }
+            }
+          }
+        }
+      } else {
+        key = hist.date;
+      }
       if (!key) continue;
       if (!byDate[key]) byDate[key] = [];
       for (const s of hist.strategies) byDate[key].push(s);
@@ -807,12 +832,13 @@
     if (sig.strategy === "K_VOLATILITY_BREAKOUT") {
       return `<div>목표가: <span style="color:#e6edf3;font-weight:600;">${fmt(d.target_price)} ₩</span></div>
               <div>현재가: <span style="color:#e6edf3;font-weight:600;">${fmt(d.current_price)} ₩</span></div>
-              <div style="font-size:0.75rem;margin-top:2px;">K=${d.k} · 전일범위=${fmt(d.prev_range)} ₩</div>`;
+              <div style="font-size:0.75rem;margin-top:2px;">K=${d.k} · 전봉범위=${fmt(d.prev_range)} ₩</div>`;
     }
     if (sig.strategy === "RSI_OVERSOLD_BOUNCE") {
+      const periodLabel = d.period_label || "봉";
       return `<div>RSI: <span style="color:#e6edf3;font-weight:600;">${d.rsi_value !== null ? d.rsi_value?.toFixed(1) : "-"}</span>
               <span style="font-size:0.75rem;"> (임계값 ${d.threshold})</span></div>
-              <div style="font-size:0.75rem;margin-top:2px;">기간=${d.period}일봉</div>`;
+              <div style="font-size:0.75rem;margin-top:2px;">기간=${d.period}${periodLabel}</div>`;
     }
     if (sig.strategy === "MA_GOLDEN_CROSS") {
       return `<div>MA5: <span style="color:#e6edf3;font-weight:600;">${d.ma5 !== null ? fmt(d.ma5) : "-"}</span></div>
