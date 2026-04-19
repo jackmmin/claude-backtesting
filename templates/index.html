@@ -978,8 +978,8 @@
         return;
       }
 
-      renderBacktest(data);
       document.getElementById("btResult").style.display = "block";
+      renderBacktest(data);
     } catch (e) {
       alert("백테스팅 오류: " + e.message);
     } finally {

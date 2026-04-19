@@ -38,7 +38,7 @@ function kVolatilityBacktest(data, k, initialCapital) {
     if (curr.high_price >= target) {
       const sell = nextDay.opening_price;
       const pnl = (sell - target) / target;
-      trades.push({ date: curr.candle_date_time_kst.slice(0, 10), buy_price: Math.round(target), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+      trades.push({ date: curr.candle_date_time_kst.slice(0, 10), buy_datetime: curr.candle_date_time_kst, sell_datetime: nextDay.candle_date_time_kst, buy_price: Math.round(target), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
     }
   }
   let currentSignal = null;
@@ -49,14 +49,14 @@ function kVolatilityBacktest(data, k, initialCapital) {
     const target = curr.opening_price + k * prevRange;
     currentSignal = { date: curr.candle_date_time_kst.slice(0, 10), open: curr.opening_price, prev_range: Math.round(prevRange), target_price: Math.round(target), current_price: curr.trade_price, triggered: curr.high_price >= target, in_trade: false, k };
   }
-  return buildResult("K_VOLATILITY_BREAKOUT", trades, initialCapital, currentSignal, { k, total_candles: data.length });
+  return buildResult("K_VOLATILITY_BREAKOUT", trades, initialCapital, currentSignal, data, { k, total_candles: data.length });
 }
 
 // ── RSI 과매도 반등 ────────────────────────────────────────────────────────────
 
 function rsiOversoldBacktest(data, period, threshold, exitThreshold, initialCapital) {
   const trades = [];
-  let inTrade = false, entryPrice = null, entryDate = null;
+  let inTrade = false, entryPrice = null, entryDate = null, entryDatetime = null;
 
   for (let i = period + 1; i < data.length; i++) {
     const closes = data.slice(0, i + 1).map(c => c.trade_price);
@@ -69,6 +69,7 @@ function rsiOversoldBacktest(data, period, threshold, exitThreshold, initialCapi
         if (i + 1 < data.length) {
           entryPrice = data[i + 1].opening_price;
           entryDate = data[i].candle_date_time_kst.slice(0, 10);
+          entryDatetime = data[i + 1].candle_date_time_kst;
           inTrade = true;
         }
       }
@@ -77,7 +78,7 @@ function rsiOversoldBacktest(data, period, threshold, exitThreshold, initialCapi
         if (i + 1 < data.length) {
           const sell = data[i + 1].opening_price;
           const pnl = (sell - entryPrice) / entryPrice;
-          trades.push({ date: entryDate, buy_price: Math.round(entryPrice), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
           inTrade = false;
         }
       }
@@ -94,14 +95,14 @@ function rsiOversoldBacktest(data, period, threshold, exitThreshold, initialCapi
     triggered: rsiCurr !== null && rsiCurr < threshold && (rsiPrev === null || rsiPrev >= threshold),
     in_trade: inTrade,
   };
-  return buildResult("RSI_OVERSOLD_BOUNCE", trades, initialCapital, currentSignal, { rsi_period: period, rsi_threshold: threshold, rsi_exit: exitThreshold, total_candles: data.length });
+  return buildResult("RSI_OVERSOLD_BOUNCE", trades, initialCapital, currentSignal, data, { rsi_period: period, rsi_threshold: threshold, rsi_exit: exitThreshold, total_candles: data.length });
 }
 
 // ── MA 골든크로스 ──────────────────────────────────────────────────────────────
 
 function maGoldenCrossBacktest(data, fast, slow, initialCapital) {
   const trades = [];
-  let inTrade = false, entryPrice = null, entryDate = null;
+  let inTrade = false, entryPrice = null, entryDate = null, entryDatetime = null;
 
   for (let i = slow + 1; i < data.length; i++) {
     const closes = data.slice(0, i + 1).map(c => c.trade_price);
@@ -112,14 +113,14 @@ function maGoldenCrossBacktest(data, fast, slow, initialCapital) {
 
     if (!inTrade) {
       if (maFastPrev <= maSlowPrev && maFastCurr > maSlowCurr) {
-        if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price; entryDate = data[i].candle_date_time_kst.slice(0, 10); inTrade = true; }
+        if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price; entryDate = data[i].candle_date_time_kst.slice(0, 10); entryDatetime = data[i + 1].candle_date_time_kst; inTrade = true; }
       }
     } else {
       if (maFastPrev >= maSlowPrev && maFastCurr < maSlowCurr) {
         if (i + 1 < data.length) {
           const sell = data[i + 1].opening_price;
           const pnl = (sell - entryPrice) / entryPrice;
-          trades.push({ date: entryDate, buy_price: Math.round(entryPrice), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
           inTrade = false;
         }
       }
@@ -137,14 +138,14 @@ function maGoldenCrossBacktest(data, fast, slow, initialCapital) {
     fast_period: fast, slow_period: slow,
     triggered: goldenCross, in_trade: inTrade,
   };
-  return buildResult("MA_GOLDEN_CROSS", trades, initialCapital, currentSignal, { ma_fast: fast, ma_slow: slow, total_candles: data.length });
+  return buildResult("MA_GOLDEN_CROSS", trades, initialCapital, currentSignal, data, { ma_fast: fast, ma_slow: slow, total_candles: data.length });
 }
 
 // ── 볼린저밴드 반등 ────────────────────────────────────────────────────────────
 
 function bollingerBounceBacktest(data, period, stdMult, initialCapital) {
   const trades = [];
-  let inTrade = false, entryPrice = null, entryDate = null;
+  let inTrade = false, entryPrice = null, entryDate = null, entryDatetime = null;
 
   for (let i = period + 1; i < data.length; i++) {
     const closes = data.slice(0, i + 1).map(c => c.trade_price);
@@ -157,14 +158,14 @@ function bollingerBounceBacktest(data, period, stdMult, initialCapital) {
 
     if (!inTrade) {
       if (prev < lower && curr >= lower) {
-        if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price; entryDate = data[i].candle_date_time_kst.slice(0, 10); inTrade = true; }
+        if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price; entryDate = data[i].candle_date_time_kst.slice(0, 10); entryDatetime = data[i + 1].candle_date_time_kst; inTrade = true; }
       }
     } else {
       if (curr >= middle) {
         if (i + 1 < data.length) {
           const sell = data[i + 1].opening_price;
           const pnl = (sell - entryPrice) / entryPrice;
-          trades.push({ date: entryDate, buy_price: Math.round(entryPrice), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice), sell_price: Math.round(sell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
           inTrade = false;
         }
       }
@@ -183,13 +184,21 @@ function bollingerBounceBacktest(data, period, stdMult, initialCapital) {
     triggered: closes.length >= 2 && closes[closes.length - 2] < lower && closes[closes.length - 1] >= lower,
     in_trade: inTrade,
   };
-  return buildResult("BOLLINGER_BOUNCE", trades, initialCapital, currentSignal, { bb_period: period, bb_std: stdMult, total_candles: data.length });
+  return buildResult("BOLLINGER_BOUNCE", trades, initialCapital, currentSignal, data, { bb_period: period, bb_std: stdMult, total_candles: data.length });
 }
 
 // ── 공통 결과 빌더 ─────────────────────────────────────────────────────────────
 
-function buildResult(strategy, trades, initialCapital, currentSignal, extra = {}) {
-  const base = { strategy, total_trades: 0, win_rate: 0, avg_pnl_per_trade: 0, total_return: 0, initial_capital: initialCapital, final_value: initialCapital, profit_loss: 0, equity_curve: [], current_signal: currentSignal, trades: [], ...extra };
+function buildResult(strategy, trades, initialCapital, currentSignal, candles = [], extra = {}) {
+  const candleData = candles.map(c => ({
+    t: c.candle_date_time_kst,
+    o: c.opening_price,
+    h: c.high_price,
+    l: c.low_price,
+    c: c.trade_price,
+  }));
+
+  const base = { strategy, total_trades: 0, win_rate: 0, avg_pnl_per_trade: 0, total_return: 0, initial_capital: initialCapital, final_value: initialCapital, profit_loss: 0, equity_curve: [], current_signal: currentSignal, trades: [], candles: candleData, trade_markers: [], ...extra };
   if (!trades.length) return base;
 
   const wins = trades.filter(t => t.win).length;
@@ -202,6 +211,10 @@ function buildResult(strategy, trades, initialCapital, currentSignal, extra = {}
     t.krw_pnl = portfolio - prev;
   }
 
+  const tradeMarkers = trades
+    .filter(t => t.buy_datetime && t.sell_datetime)
+    .map(t => ({ buy_datetime: t.buy_datetime, sell_datetime: t.sell_datetime, win: t.win }));
+
   return {
     ...base,
     total_trades: trades.length,
@@ -212,6 +225,7 @@ function buildResult(strategy, trades, initialCapital, currentSignal, extra = {}
     profit_loss: portfolio - initialCapital,
     equity_curve: equityCurve,
     trades: trades.slice(-30),
+    trade_markers: tradeMarkers,
   };
 }
 
