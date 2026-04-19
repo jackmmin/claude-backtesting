@@ -8,5 +8,6 @@ candles_bp = Blueprint("candles", __name__, url_prefix="/api")
 def candles():
     exchange = request.args.get("exchange", "upbit")
     market = request.args.get("market", "KRW-BTC")
-    count = request.args.get("count", 90)
-    return jsonify(get_candles(exchange, market, count))
+    count = int(request.args.get("count", 90))
+    interval = request.args.get("interval", "days")
+    return jsonify(get_candles(exchange, market, count, interval))

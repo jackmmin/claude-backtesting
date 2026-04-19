@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from .client import get
 
 INTERVAL_PATH = {
+    "minutes5":   "/candles/minutes/5",
     "minutes15":  "/candles/minutes/15",
     "minutes60":  "/candles/minutes/60",
     "minutes240": "/candles/minutes/240",

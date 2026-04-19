@@ -362,12 +362,26 @@
   <!-- 차트 탭 -->
   <div class="tab-pane active" id="tab-chart">
     <div class="controls">
-      <div class="period-btns">
-        <button data-count="7"  class="period-btn">7일</button>
-        <button data-count="30" class="period-btn active">30일</button>
-        <button data-count="90" class="period-btn">90일</button>
-        <button data-count="180" class="period-btn">180일</button>
-        <button data-count="365" class="period-btn">1년</button>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div class="period-btns">
+          <button data-count="7"  class="period-btn">7</button>
+          <button data-count="30" class="period-btn active">30</button>
+          <button data-count="90" class="period-btn">90</button>
+          <button data-count="180" class="period-btn">180</button>
+          <button data-count="365" class="period-btn">365</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;color:#8b949e;">
+          타임프레임:
+          <select id="chartIntervalSelect">
+            <option value="minutes5">5분봉</option>
+            <option value="minutes15">15분봉</option>
+            <option value="minutes60">1시간봉</option>
+            <option value="minutes240">4시간봉</option>
+            <option value="days" selected>1일봉</option>
+            <option value="weeks">주봉</option>
+            <option value="months">월봉</option>
+          </select>
+        </label>
       </div>
     </div>
 
@@ -557,16 +571,29 @@
   };
 
   // ── 차트 렌더링 ─────────────────────────────────────────
+  function getChartInterval() {
+    const el = document.getElementById("chartIntervalSelect");
+    return el ? el.value : "days";
+  }
+
+  function formatCandleLabel(kstStr, interval) {
+    if (!kstStr) return "";
+    if (interval.startsWith("minutes")) return kstStr.slice(0, 16).replace("T", " ");
+    return kstStr.slice(0, 10);
+  }
+
   async function loadChart() {
     const market = document.getElementById("marketSelect").value;
     if (!market) return;
+
+    const interval = getChartInterval();
 
     document.getElementById("loader").classList.remove("hidden");
     document.getElementById("signalCardsContainer").style.display = "none";
 
     const [candleRes, signalsRes] = await Promise.all([
-      fetch(`/api/candles?market=${market}&count=${currentCount}`),
-      fetch(`/api/signals?market=${market}&count=${Math.max(currentCount, 60)}`),
+      fetch(`/api/candles?market=${market}&count=${currentCount}&interval=${interval}`),
+      fetch(`/api/signals?market=${market}&count=${Math.max(currentCount, 60)}&interval=${interval}`),
       loadTicker(market),
     ]);
     const candles = await candleRes.json();
@@ -575,7 +602,7 @@
     // Upbit returns newest-first; reverse for chronological order
     candles.reverse();
 
-    const labels = candles.map(c => c.candle_date_time_kst.slice(0, 10));
+    const labels = candles.map(c => formatCandleLabel(c.candle_date_time_kst, interval));
     const closes = candles.map(c => c.trade_price);
 
     const isUp = closes[closes.length - 1] >= closes[0];
@@ -755,6 +782,10 @@
   document.getElementById("marketSelect").addEventListener("change", () => {
     const activeTab = document.querySelector(".tab-pane.active").id;
     if (activeTab === "tab-chart") loadChart();
+  });
+
+  document.getElementById("chartIntervalSelect").addEventListener("change", () => {
+    loadChart();
   });
 
   document.querySelectorAll(".period-btn").forEach(btn => {

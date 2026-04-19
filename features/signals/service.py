@@ -4,9 +4,9 @@ from exchanges import get_exchange
 MIN_CANDLES = 30
 
 
-def calculate_signals(exchange="upbit", market="KRW-BTC", count=200):
+def calculate_signals(exchange="upbit", market="KRW-BTC", count=200, interval="days"):
     exch = get_exchange(exchange)
-    candles = exch.get_candles_bulk(market, count=count, interval="days")
+    candles = exch.get_candles_bulk(market, count=count, interval=interval)
 
     if len(candles) < MIN_CANDLES:
         return {"error": f"데이터 부족: {len(candles)}개 (최소 {MIN_CANDLES}개 필요)"}
