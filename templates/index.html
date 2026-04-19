@@ -249,7 +249,11 @@
       background: rgba(63,185,80,0.1);
       border: 1px solid #3fb950;
     }
-    .signal-box.waiting {
+    .signal-box.in-trade {
+      background: rgba(88,166,255,0.08);
+      border: 1px solid #58a6ff;
+    }
+    .signal-box.waiting, .signal-box.neutral {
       background: rgba(139,148,158,0.08);
       border: 1px solid #30363d;
     }
@@ -258,11 +262,18 @@
       font-weight: 800;
       padding: 6px 18px;
       border-radius: 20px;
+      white-space: nowrap;
     }
+    .signal-badge.triggered { background: #3fb950; color: #0d1117; }
+    .signal-badge.in-trade  { background: #58a6ff; color: #0d1117; }
+    .signal-badge.waiting, .signal-badge.neutral { background: #30363d; color: #8b949e; }
     .signal-badge.long { background: #3fb950; color: #0d1117; }
     .signal-badge.wait { background: #30363d; color: #8b949e; }
     .signal-detail { font-size: 0.88rem; color: #8b949e; line-height: 1.7; }
     .signal-detail span { color: #e6edf3; font-weight: 600; }
+    .signal-row { display: flex; gap: 8px; align-items: center; }
+    .signal-label { color: #8b949e; min-width: 140px; }
+    .signal-value { color: #e6edf3; font-weight: 600; }
 
     .stats-grid {
       display: grid;
@@ -347,7 +358,7 @@
   <!-- 탭 -->
   <div class="tabs">
     <button class="tab-btn active" data-tab="chart">차트</button>
-    <button class="tab-btn" data-tab="backtesting">백테스팅 (K변동성 돌파)</button>
+    <button class="tab-btn" data-tab="backtesting">백테스팅</button>
   </div>
 
   <!-- 차트 탭 -->
@@ -396,6 +407,15 @@
   <div class="tab-pane" id="tab-backtesting">
     <div class="bt-controls">
       <label>
+        전략:
+        <select id="strategySelect" onchange="onStrategyChange()">
+          <option value="K_VOLATILITY_BREAKOUT">K변동성 돌파</option>
+          <option value="RSI_OVERSOLD_BOUNCE">RSI 과매도 반등</option>
+          <option value="MA_GOLDEN_CROSS">MA 골든크로스</option>
+          <option value="BOLLINGER_BOUNCE">볼린저밴드 반등</option>
+        </select>
+      </label>
+      <label>
         타임프레임:
         <select id="intervalSelect">
           <option value="minutes15">15분봉</option>
@@ -414,15 +434,34 @@
         초기비용 (₩):
         <input type="text" class="wide" id="initialCapital" value="1,000,000" inputmode="numeric">
       </label>
-      <label>
-        K 값:
-        <input type="range" id="kSlider" min="0.1" max="1.0" step="0.05" value="0.5">
-        <span id="kValueDisplay">0.5</span>
-      </label>
+      <!-- K변동성 돌파 전용 -->
+      <div id="ctrl-k" style="display:flex;gap:12px;align-items:center;">
+        <label>
+          K 값:
+          <input type="range" id="kSlider" min="0.1" max="1.0" step="0.05" value="0.5">
+          <span id="kValueDisplay">0.5</span>
+        </label>
+      </div>
+      <!-- RSI 과매도 반등 전용 -->
+      <div id="ctrl-rsi" style="display:none;gap:12px;align-items:center;">
+        <label>RSI 기간: <input type="number" id="rsiPeriod" value="14" min="5" max="50" style="width:60px;text-align:center;"></label>
+        <label>과매도 임계값: <input type="number" id="rsiThreshold" value="30" min="10" max="45" style="width:60px;text-align:center;"></label>
+        <label>청산 RSI: <input type="number" id="rsiExit" value="50" min="40" max="80" style="width:60px;text-align:center;"></label>
+      </div>
+      <!-- MA 골든크로스 전용 -->
+      <div id="ctrl-ma" style="display:none;gap:12px;align-items:center;">
+        <label>단기 MA: <input type="number" id="maFast" value="5" min="3" max="20" style="width:60px;text-align:center;"></label>
+        <label>장기 MA: <input type="number" id="maSlow" value="20" min="10" max="100" style="width:70px;text-align:center;"></label>
+      </div>
+      <!-- 볼린저밴드 반등 전용 -->
+      <div id="ctrl-bb" style="display:none;gap:12px;align-items:center;">
+        <label>기간: <input type="number" id="bbPeriod" value="20" min="5" max="50" style="width:60px;text-align:center;"></label>
+        <label>배수(σ): <input type="number" id="bbStd" value="2.0" min="1.0" max="3.0" step="0.1" style="width:65px;text-align:center;"></label>
+      </div>
       <button class="bt-run-btn" id="btRunBtn">백테스팅 실행</button>
     </div>
 
-    <p style="font-size:0.8rem;color:#8b949e;margin-bottom:18px;">
+    <p id="strategyDesc" style="font-size:0.8rem;color:#8b949e;margin-bottom:18px;">
       전략: 시가 + K × 전봉 변동폭 돌파 시 롱 진입 → 다음 봉 시가 청산 · 최대 1000개 캔들 수집 가능
     </p>
 
@@ -809,6 +848,36 @@
   });
 
   // ── 백테스팅 ────────────────────────────────────────────
+  const STRATEGY_NAMES = {
+    K_VOLATILITY_BREAKOUT: "K변동성 돌파",
+    RSI_OVERSOLD_BOUNCE: "RSI 과매도 반등",
+    MA_GOLDEN_CROSS: "MA 골든크로스",
+    BOLLINGER_BOUNCE: "볼린저밴드 반등",
+  };
+  const STRATEGY_DESCS = {
+    K_VOLATILITY_BREAKOUT: "전략: 시가 + K × 전봉 변동폭 돌파 시 롱 진입 → 다음 봉 시가 청산 · 최대 1000개 캔들 수집 가능",
+    RSI_OVERSOLD_BOUNCE: "전략: RSI가 과매도 구간(기본 30) 진입 시 다음 봉 시가 매수 → RSI가 청산 기준(기본 50) 상향 돌파 시 다음 봉 시가 매도",
+    MA_GOLDEN_CROSS: "전략: 단기 MA가 장기 MA 상향 돌파(골든크로스) 시 다음 봉 시가 매수 → 데드크로스 시 다음 봉 시가 매도",
+    BOLLINGER_BOUNCE: "전략: 종가가 볼린저 하단밴드 하향 후 복귀 시 다음 봉 시가 매수 → 종가가 중심선 도달 시 다음 봉 시가 매도",
+  };
+
+  function onStrategyChange() {
+    const strategy = document.getElementById("strategySelect").value;
+    ["ctrl-k", "ctrl-rsi", "ctrl-ma", "ctrl-bb"].forEach(id => {
+      document.getElementById(id).style.display = "none";
+    });
+    const map = {
+      K_VOLATILITY_BREAKOUT: "ctrl-k",
+      RSI_OVERSOLD_BOUNCE: "ctrl-rsi",
+      MA_GOLDEN_CROSS: "ctrl-ma",
+      BOLLINGER_BOUNCE: "ctrl-bb",
+    };
+    const id = map[strategy];
+    if (id) document.getElementById(id).style.display = "flex";
+    document.getElementById("strategyDesc").textContent = STRATEGY_DESCS[strategy] || "";
+    document.getElementById("btResult").style.display = "none";
+  }
+
   const kSlider = document.getElementById("kSlider");
   const kDisplay = document.getElementById("kValueDisplay");
   kSlider.addEventListener("input", () => { kDisplay.textContent = kSlider.value; });
@@ -838,19 +907,35 @@
     const market = document.getElementById("marketSelect").value;
     if (!market) return;
 
-    const k = parseFloat(kSlider.value);
+    const strategy = document.getElementById("strategySelect").value;
     const interval = document.getElementById("intervalSelect").value;
     const count = parseInt(document.getElementById("candleCount").value) || 200;
     const initialCapital = getCapitalValue();
+
+    let params = `market=${market}&strategy=${strategy}&interval=${interval}&count=${count}&initial_capital=${initialCapital}`;
+    if (strategy === "K_VOLATILITY_BREAKOUT") {
+      params += `&k=${parseFloat(kSlider.value)}`;
+    } else if (strategy === "RSI_OVERSOLD_BOUNCE") {
+      params += `&rsi_period=${document.getElementById("rsiPeriod").value}`;
+      params += `&rsi_threshold=${document.getElementById("rsiThreshold").value}`;
+      params += `&rsi_exit=${document.getElementById("rsiExit").value}`;
+    } else if (strategy === "MA_GOLDEN_CROSS") {
+      params += `&ma_fast=${document.getElementById("maFast").value}`;
+      params += `&ma_slow=${document.getElementById("maSlow").value}`;
+    } else if (strategy === "BOLLINGER_BOUNCE") {
+      params += `&bb_period=${document.getElementById("bbPeriod").value}`;
+      params += `&bb_std=${document.getElementById("bbStd").value}`;
+    }
+
     const btn = document.getElementById("btRunBtn");
     btn.disabled = true;
     document.getElementById("btLoadingMsg").style.display = "block";
     document.getElementById("btLoadingText").textContent =
-      `${INTERVAL_LABEL[interval]} ${count}개 캔들 데이터 수집 중...`;
+      `${STRATEGY_NAMES[strategy]} | ${INTERVAL_LABEL[interval]} ${count}개 캔들 수집 중...`;
     document.getElementById("btResult").style.display = "none";
 
     try {
-      const res = await fetch(`/api/backtesting?market=${market}&k=${k}&interval=${interval}&count=${count}&initial_capital=${initialCapital}`);
+      const res = await fetch(`/api/backtesting?${params}`);
       const data = await res.json();
 
       if (data.error) {
@@ -868,35 +953,64 @@
     }
   }
 
+  function renderCurrentSignal(sig, strategy, fmt) {
+    const signalBox   = document.getElementById("signalBox");
+    const signalBadge = document.getElementById("signalBadge");
+    const signalDetail = document.getElementById("signalDetail");
+
+    if (!sig) { signalBox.className = "signal-box neutral"; signalBadge.textContent = "신호 없음"; signalDetail.innerHTML = ""; return; }
+
+    if (sig.triggered) {
+      signalBox.className   = "signal-box triggered";
+      signalBadge.className = "signal-badge triggered";
+      signalBadge.textContent = "진입 신호 발생!";
+    } else if (sig.in_trade) {
+      signalBox.className   = "signal-box in-trade";
+      signalBadge.className = "signal-badge in-trade";
+      signalBadge.textContent = "포지션 보유 중";
+    } else {
+      signalBox.className   = "signal-box waiting";
+      signalBadge.className = "signal-badge waiting";
+      signalBadge.textContent = "대기 중";
+    }
+
+    let html = `<div class="signal-row"><span class="signal-label">날짜</span><span class="signal-value">${sig.date}</span></div>`;
+
+    if (strategy === "K_VOLATILITY_BREAKOUT") {
+      html += `
+        <div class="signal-row"><span class="signal-label">시가</span><span class="signal-value">${fmt(sig.open)} ₩</span></div>
+        <div class="signal-row"><span class="signal-label">전일 범위</span><span class="signal-value">${fmt(sig.prev_range)} ₩</span></div>
+        <div class="signal-row"><span class="signal-label">목표가 (×K=${sig.k})</span><span class="signal-value">${fmt(sig.target_price)} ₩</span></div>
+        <div class="signal-row"><span class="signal-label">현재가</span><span class="signal-value">${fmt(sig.current_price)} ₩</span></div>`;
+    } else if (strategy === "RSI_OVERSOLD_BOUNCE") {
+      html += `
+        <div class="signal-row"><span class="signal-label">RSI</span><span class="signal-value">${sig.rsi_value !== null ? sig.rsi_value : "-"}</span></div>
+        <div class="signal-row"><span class="signal-label">진입 기준 (RSI &lt;)</span><span class="signal-value">${sig.threshold}</span></div>
+        <div class="signal-row"><span class="signal-label">청산 기준 (RSI &ge;)</span><span class="signal-value">${sig.exit_threshold}</span></div>
+        <div class="signal-row"><span class="signal-label">포지션</span><span class="signal-value">${sig.in_trade ? "보유 중" : "없음"}</span></div>`;
+    } else if (strategy === "MA_GOLDEN_CROSS") {
+      html += `
+        <div class="signal-row"><span class="signal-label">단기 MA (${sig.fast_period})</span><span class="signal-value">${sig.ma_fast !== null ? fmt(sig.ma_fast) + " ₩" : "-"}</span></div>
+        <div class="signal-row"><span class="signal-label">장기 MA (${sig.slow_period})</span><span class="signal-value">${sig.ma_slow !== null ? fmt(sig.ma_slow) + " ₩" : "-"}</span></div>
+        <div class="signal-row"><span class="signal-label">포지션</span><span class="signal-value">${sig.in_trade ? "보유 중" : "없음"}</span></div>`;
+    } else if (strategy === "BOLLINGER_BOUNCE") {
+      html += `
+        <div class="signal-row"><span class="signal-label">현재가</span><span class="signal-value">${fmt(sig.current_price)} ₩</span></div>
+        <div class="signal-row"><span class="signal-label">하단 밴드</span><span class="signal-value">${fmt(sig.lower_band)} ₩</span></div>
+        <div class="signal-row"><span class="signal-label">중간 밴드</span><span class="signal-value">${fmt(sig.middle_band)} ₩</span></div>
+        <div class="signal-row"><span class="signal-label">상단 밴드</span><span class="signal-value">${fmt(sig.upper_band)} ₩</span></div>
+        <div class="signal-row"><span class="signal-label">포지션</span><span class="signal-value">${sig.in_trade ? "보유 중" : "없음"}</span></div>`;
+    }
+
+    signalDetail.innerHTML = html;
+  }
+
   function renderBacktest(d) {
     const fmt = n => Number(n).toLocaleString("ko-KR");
     const pct = n => (n * 100).toFixed(2) + "%";
 
     // 현재 시그널
-    const sig = d.current_signal;
-    const signalBox = document.getElementById("signalBox");
-    const signalBadge = document.getElementById("signalBadge");
-    const signalDetail = document.getElementById("signalDetail");
-
-    if (sig && sig.triggered) {
-      signalBox.className = "signal-box triggered";
-      signalBadge.className = "signal-badge long";
-      signalBadge.textContent = "LONG 진입";
-    } else {
-      signalBox.className = "signal-box waiting";
-      signalBadge.className = "signal-badge wait";
-      signalBadge.textContent = "대기 중";
-    }
-
-    if (sig) {
-      signalDetail.innerHTML = `
-        <div>날짜: <span>${sig.date}</span></div>
-        <div>시가: <span>${fmt(sig.open)} ₩</span></div>
-        <div>전일 변동폭 × K: <span>${fmt(sig.prev_range)} × ${sig.k} = ${fmt(Math.round(sig.prev_range * sig.k))} ₩</span></div>
-        <div>목표가 (진입 조건): <span>${fmt(sig.target_price)} ₩</span></div>
-        <div>현재가: <span>${fmt(sig.current_price)} ₩</span></div>
-      `;
-    }
+    renderCurrentSignal(d.current_signal, d.strategy, fmt);
 
     // 통계
     const setVal = (id, text, cls) => {
