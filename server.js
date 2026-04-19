@@ -1,9 +1,14 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const { handleUpbitRoutes } = require("./routes/upbit");
 
 const PORT = 5000;
+
+const routes = [
+  require("./features/markets/routes"),
+  require("./features/candles/routes"),
+  require("./features/ticker/routes"),
+];
 
 const server = http.createServer(async (req, res) => {
   const parsed = new URL(req.url, `http://localhost:${PORT}`);
@@ -12,12 +17,15 @@ const server = http.createServer(async (req, res) => {
 
   res.setHeader("Access-Control-Allow-Origin", "*");
 
-  try {
-    const handled = await handleUpbitRoutes(req, res, pathname, query);
-    if (handled !== false) return;
-  } catch (err) {
-    res.writeHead(500);
-    return res.end(JSON.stringify({ error: err.message }));
+  const route = routes.find((r) => r.path === pathname);
+  if (route) {
+    try {
+      await route.handle(req, res, query);
+    } catch (err) {
+      res.writeHead(500);
+      res.end(JSON.stringify({ error: err.message }));
+    }
+    return;
   }
 
   // Static files
