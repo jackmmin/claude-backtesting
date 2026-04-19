@@ -1,7 +1,8 @@
 const { getCandlesBulk } = require("../../exchanges/upbit/candles");
 
 const MIN_CANDLES = 30;
-const FEE_RATE = 0.0005;  // 매수/매도 각 0.05% 수수료
+const FEE_RATE = 0.0005;    // 매수/매도 각 0.05% 수수료
+const TAKE_PROFIT = 0.05;   // 수익률 5% 도달 시 익절 청산
 
 async function runBacktest({
   market = "KRW-BTC",
@@ -19,13 +20,7 @@ async function runBacktest({
   const data = [...candles].reverse();
 
   if (strategy === "K_VOLATILITY_BREAKOUT") {
-    // K변동성 돌파는 타임프레임 무관하게 1일봉 데이터로 백테스팅
-    const dayCandles = await getCandlesBulk(market, count, "days");
-    if (dayCandles.length < MIN_CANDLES) {
-      return { error: `일봉 데이터 부족: ${dayCandles.length}개 수집 (최소 ${MIN_CANDLES}개 필요)` };
-    }
-    const dayData = [...dayCandles].reverse();
-    return kVolatilityBacktest(dayData, k, initialCapital);
+    return kVolatilityBacktest(data, k, initialCapital);
   }
   if (strategy === "RSI_OVERSOLD_BOUNCE") return rsiOversoldBacktest(data, rsiPeriod, rsiThreshold, rsiExit, initialCapital);
   if (strategy === "MA_GOLDEN_CROSS") return maGoldenCrossBacktest(data, maFast, maSlow, initialCapital);
@@ -37,17 +32,17 @@ async function runBacktest({
 
 function kVolatilityBacktest(data, k, initialCapital) {
   const trades = [];
-  for (let i = 1; i < data.length - 1; i++) {
+  for (let i = 1; i < data.length; i++) {
     const prev = data[i - 1];
     const curr = data[i];
-    const nextDay = data[i + 1];
     const prevRange = prev.trade_price - prev.low_price;
     if (prevRange <= 0) continue;
     const target = curr.opening_price + k * prevRange;
     if (curr.high_price >= target) {
-      // 종가 10분 전(당일 23:50 KST) 청산 → 당일 종가로 근사
       const buyCost = target * (1 + FEE_RATE);   // 매수 수수료 반영
-      const rawSell = curr.trade_price;
+      const tpPrice = target * (1 + TAKE_PROFIT);
+      // 당일 고가가 TP 가격 이상이면 TP 청산, 아니면 당일 종가 청산
+      const rawSell = curr.high_price >= tpPrice ? tpPrice : curr.trade_price;
       const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영
       const pnl = (sell - buyCost) / buyCost;
       trades.push({ date: curr.candle_date_time_kst.slice(0, 16), buy_datetime: curr.candle_date_time_kst, sell_datetime: curr.candle_date_time_kst.slice(0, 10) + " 23:50:00", buy_price: Math.round(target), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
@@ -86,7 +81,15 @@ function rsiOversoldBacktest(data, period, threshold, exitThreshold, initialCapi
         }
       }
     } else {
-      if (rsiCurr >= exitThreshold) {
+      const tpPrice = (entryPrice / (1 + FEE_RATE)) * (1 + TAKE_PROFIT);
+      if (data[i].high_price >= tpPrice) {
+        // TP 도달: 해당 봉 고가 기준 익절 청산
+        const rawSell = tpPrice;
+        const sell = rawSell * (1 - FEE_RATE);
+        const pnl = (sell - entryPrice) / entryPrice;
+        trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i].candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+        inTrade = false;
+      } else if (rsiCurr >= exitThreshold) {
         if (i + 1 < data.length) {
           const rawSell = data[i + 1].opening_price;
           const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영
@@ -129,7 +132,15 @@ function maGoldenCrossBacktest(data, fast, slow, initialCapital) {
         if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price * (1 + FEE_RATE); entryDate = data[i].candle_date_time_kst.slice(0, 10); entryDatetime = data[i + 1].candle_date_time_kst; inTrade = true; }
       }
     } else {
-      if (maFastPrev >= maSlowPrev && maFastCurr < maSlowCurr) {
+      const tpPrice = (entryPrice / (1 + FEE_RATE)) * (1 + TAKE_PROFIT);
+      if (data[i].high_price >= tpPrice) {
+        // TP 도달: 해당 봉 고가 기준 익절 청산
+        const rawSell = tpPrice;
+        const sell = rawSell * (1 - FEE_RATE);
+        const pnl = (sell - entryPrice) / entryPrice;
+        trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i].candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+        inTrade = false;
+      } else if (maFastPrev >= maSlowPrev && maFastCurr < maSlowCurr) {
         if (i + 1 < data.length) {
           const rawSell = data[i + 1].opening_price;
           const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영
@@ -175,7 +186,15 @@ function bollingerBounceBacktest(data, period, stdMult, initialCapital) {
         if (i + 1 < data.length) { entryPrice = data[i + 1].opening_price * (1 + FEE_RATE); entryDate = data[i].candle_date_time_kst.slice(0, 10); entryDatetime = data[i + 1].candle_date_time_kst; inTrade = true; }
       }
     } else {
-      if (curr >= middle) {
+      const tpPrice = (entryPrice / (1 + FEE_RATE)) * (1 + TAKE_PROFIT);
+      if (data[i].high_price >= tpPrice) {
+        // TP 도달: 해당 봉 고가 기준 익절 청산
+        const rawSell = tpPrice;
+        const sell = rawSell * (1 - FEE_RATE);
+        const pnl = (sell - entryPrice) / entryPrice;
+        trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i].candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+        inTrade = false;
+      } else if (curr >= middle) {
         if (i + 1 < data.length) {
           const rawSell = data[i + 1].opening_price;
           const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영

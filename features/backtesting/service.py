@@ -2,7 +2,8 @@ import statistics
 from exchanges import get_exchange
 
 MIN_CANDLES = 30
-FEE_RATE = 0.0005  # 매수/매도 각 0.05% 수수료
+FEE_RATE = 0.0005      # 매수/매도 각 0.05% 수수료
+TAKE_PROFIT = 0.05     # 수익률 5% 도달 시 익절 청산
 
 
 def run_backtest(
@@ -23,14 +24,7 @@ def run_backtest(
     data = list(reversed(candles))
 
     if strategy == "K_VOLATILITY_BREAKOUT":
-        # K변동성 돌파는 타임프레임 무관하게 1일봉 데이터로 백테스팅, 캔들차트는 선택 타임프레임 표시
-        day_candles = exch.get_candles_bulk(market, count=count, interval="days")
-        if len(day_candles) < MIN_CANDLES:
-            return {"error": f"일봉 데이터 부족: {len(day_candles)}개 수집 (최소 {MIN_CANDLES}개 필요)"}
-        day_data = list(reversed(day_candles))
-        display_candles = data if interval != "days" else None
-        return _k_volatility_backtest(day_data, k=k, initial_capital=initial_capital,
-                                      display_candles=display_candles)
+        return _k_volatility_backtest(data, k=k, initial_capital=initial_capital)
     if strategy == "RSI_OVERSOLD_BOUNCE":
         return _rsi_oversold_backtest(data, period=rsi_period, threshold=rsi_threshold,
                                       exit_threshold=rsi_exit, initial_capital=initial_capital)
@@ -43,12 +37,11 @@ def run_backtest(
 
 # ── K변동성 돌파 ──────────────────────────────────────────────────────────────
 
-def _k_volatility_backtest(data, k=0.5, initial_capital=1000000, display_candles=None):
+def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
     trades = []
-    for i in range(1, len(data) - 1):
+    for i in range(1, len(data)):
         prev = data[i - 1]
         curr = data[i]
-        next_day = data[i + 1]
 
         prev_range = prev["trade_price"] - prev["low_price"]
         if prev_range <= 0:
@@ -57,9 +50,13 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000, display_candles
         target = curr["opening_price"] + k * prev_range
         # 당일 고가가 목표가 이상일 때 진입 (고가 기준으로 look-ahead bias 방지)
         if curr["high_price"] >= target:
-            # 종가 10분 전(당일 23:50 KST) 청산 → 당일 종가로 근사
             buy_cost = target * (1 + FEE_RATE)   # 매수 수수료 반영
-            raw_sell = curr["trade_price"]
+            tp_price = target * (1 + TAKE_PROFIT)
+            # 당일 고가가 TP 가격 이상이면 TP 청산, 아니면 당일 종가 청산
+            if curr["high_price"] >= tp_price:
+                raw_sell = tp_price
+            else:
+                raw_sell = curr["trade_price"]
             sell = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
             pnl = (sell - buy_cost) / buy_cost
             trades.append({
@@ -89,10 +86,8 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000, display_candles
             "k": k,
         }
 
-    # 캔들차트는 display_candles(선택 타임프레임)이 있으면 그것을, 없으면 day_data를 사용
-    chart_candles = display_candles if display_candles is not None else data
     return _build_result("K_VOLATILITY_BREAKOUT", trades, initial_capital, current_signal,
-                         candles=chart_candles, k=k, total_candles=len(data))
+                         candles=data, k=k, total_candles=len(data))
 
 
 # ── RSI 과매도 반등 ────────────────────────────────────────────────────────────
@@ -122,7 +117,23 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=50, ini
                     entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
                     in_trade = True
         else:
-            if rsi_curr >= exit_threshold:
+            tp_price = (entry_price / (1 + FEE_RATE)) * (1 + TAKE_PROFIT)
+            if data[i]["high_price"] >= tp_price:
+                # TP 도달: 해당 봉 고가 기준 익절 청산
+                raw_sell = tp_price
+                sell_price = raw_sell * (1 - FEE_RATE)
+                pnl = (sell_price - entry_price) / entry_price
+                trades.append({
+                    "date": entry_date,
+                    "buy_datetime": entry_datetime,
+                    "sell_datetime": data[i]["candle_date_time_kst"],
+                    "buy_price": round(entry_price / (1 + FEE_RATE)),
+                    "sell_price": round(raw_sell),
+                    "pnl": round(pnl, 6),
+                    "win": pnl > 0,
+                })
+                in_trade = False
+            elif rsi_curr >= exit_threshold:
                 if i + 1 < len(data):
                     raw_sell = data[i + 1]["opening_price"]
                     sell_price = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
@@ -184,7 +195,23 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
                     entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
                     in_trade = True
         else:
-            if ma_fast_prev >= ma_slow_prev and ma_fast_curr < ma_slow_curr:
+            tp_price = (entry_price / (1 + FEE_RATE)) * (1 + TAKE_PROFIT)
+            if data[i]["high_price"] >= tp_price:
+                # TP 도달: 해당 봉 고가 기준 익절 청산
+                raw_sell = tp_price
+                sell_price = raw_sell * (1 - FEE_RATE)
+                pnl = (sell_price - entry_price) / entry_price
+                trades.append({
+                    "date": entry_date,
+                    "buy_datetime": entry_datetime,
+                    "sell_datetime": data[i]["candle_date_time_kst"],
+                    "buy_price": round(entry_price / (1 + FEE_RATE)),
+                    "sell_price": round(raw_sell),
+                    "pnl": round(pnl, 6),
+                    "win": pnl > 0,
+                })
+                in_trade = False
+            elif ma_fast_prev >= ma_slow_prev and ma_fast_curr < ma_slow_curr:
                 if i + 1 < len(data):
                     raw_sell = data[i + 1]["opening_price"]
                     sell_price = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
@@ -254,7 +281,23 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
                     entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
                     in_trade = True
         else:
-            if curr_close >= middle:
+            tp_price = (entry_price / (1 + FEE_RATE)) * (1 + TAKE_PROFIT)
+            if data[i]["high_price"] >= tp_price:
+                # TP 도달: 해당 봉 고가 기준 익절 청산
+                raw_sell = tp_price
+                sell_price = raw_sell * (1 - FEE_RATE)
+                pnl = (sell_price - entry_price) / entry_price
+                trades.append({
+                    "date": entry_date,
+                    "buy_datetime": entry_datetime,
+                    "sell_datetime": data[i]["candle_date_time_kst"],
+                    "buy_price": round(entry_price / (1 + FEE_RATE)),
+                    "sell_price": round(raw_sell),
+                    "pnl": round(pnl, 6),
+                    "win": pnl > 0,
+                })
+                in_trade = False
+            elif curr_close >= middle:
                 if i + 1 < len(data):
                     raw_sell = data[i + 1]["opening_price"]
                     sell_price = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
