@@ -1,17 +1,16 @@
 from exchanges import get_exchange
 
-MIN_CANDLES = {"days": 365}
+MIN_CANDLES = 30
 
 
-def run_backtest(exchange="upbit", market="KRW-BTC", k=0.5, interval="days"):
-    min_required = MIN_CANDLES.get(interval, 365)
+def run_backtest(exchange="upbit", market="KRW-BTC", k=0.5, interval="days", count=200):
     exch = get_exchange(exchange)
 
-    candles = exch.get_candles_bulk(market, count=min_required)
+    candles = exch.get_candles_bulk(market, count=count, interval=interval)
 
-    if len(candles) < min_required:
+    if len(candles) < MIN_CANDLES:
         return {
-            "error": f"데이터 부족: {len(candles)}개 수집 (최소 {min_required}개 필요)"
+            "error": f"데이터 부족: {len(candles)}개 수집 (최소 {MIN_CANDLES}개 필요)"
         }
 
     return _k_volatility_backtest(candles, k=k)

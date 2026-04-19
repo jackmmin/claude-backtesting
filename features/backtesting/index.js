@@ -1,13 +1,12 @@
 const { getCandlesBulk } = require("../../exchanges/upbit/candles");
 
-const MIN_CANDLES = { days: 365 };
+const MIN_CANDLES = 30;
 
-async function runBacktest({ market = "KRW-BTC", k = 0.5, interval = "days" } = {}) {
-  const minRequired = MIN_CANDLES[interval] || 365;
-  const candles = await getCandlesBulk(market, minRequired);
+async function runBacktest({ market = "KRW-BTC", k = 0.5, interval = "days", count = 200 } = {}) {
+  const candles = await getCandlesBulk(market, count, interval);
 
-  if (candles.length < minRequired) {
-    return { error: `데이터 부족: ${candles.length}개 수집 (최소 ${minRequired}개 필요)` };
+  if (candles.length < MIN_CANDLES) {
+    return { error: `데이터 부족: ${candles.length}개 수집 (최소 ${MIN_CANDLES}개 필요)` };
   }
 
   return kVolatilityBacktest(candles, k);

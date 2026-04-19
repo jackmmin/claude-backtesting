@@ -10,4 +10,5 @@ def backtesting():
     market = request.args.get("market", "KRW-BTC")
     k = float(request.args.get("k", 0.5))
     interval = request.args.get("interval", "days")
-    return jsonify(run_backtest(exchange, market, k, interval))
+    count = int(request.args.get("count", 200))
+    return jsonify(run_backtest(exchange, market, k, interval, count))
