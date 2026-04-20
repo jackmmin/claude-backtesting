@@ -21,6 +21,15 @@ def backtesting():
     rsi_exit = float(request.args.get("rsi_exit", 62))
     rsi_tp = float(request.args.get("rsi_tp", 0.07))
     rsi_sl = float(request.args.get("rsi_sl", -0.04))
+    rsi_entry_mode = request.args.get("rsi_entry_mode", "crossover")
+    rsi_ma_filter = request.args.get("rsi_ma_filter", "false").lower() == "true"
+    rsi_ma_period = int(request.args.get("rsi_ma_period", 20))
+    rsi_volume_filter = request.args.get("rsi_volume_filter", "false").lower() == "true"
+    rsi_volume_mult = float(request.args.get("rsi_volume_mult", 1.5))
+    rsi_use_tp = request.args.get("rsi_use_tp", "true").lower() == "true"
+    rsi_use_sl = request.args.get("rsi_use_sl", "true").lower() == "true"
+    rsi_use_rsi_exit = request.args.get("rsi_use_rsi_exit", "true").lower() == "true"
+    rsi_max_hold_bars = int(request.args.get("rsi_max_hold_bars", 0))
     ma_fast = int(request.args.get("ma_fast", 5))
     ma_slow = int(request.args.get("ma_slow", 20))
     bb_period = int(request.args.get("bb_period", 20))
@@ -36,6 +45,11 @@ def backtesting():
         k_volume_filter=k_volume_filter, k_volume_mult=k_volume_mult,
         rsi_period=rsi_period, rsi_threshold=rsi_threshold, rsi_exit=rsi_exit,
         rsi_tp=rsi_tp, rsi_sl=rsi_sl,
+        rsi_entry_mode=rsi_entry_mode,
+        rsi_ma_filter=rsi_ma_filter, rsi_ma_period=rsi_ma_period,
+        rsi_volume_filter=rsi_volume_filter, rsi_volume_mult=rsi_volume_mult,
+        rsi_use_tp=rsi_use_tp, rsi_use_sl=rsi_use_sl, rsi_use_rsi_exit=rsi_use_rsi_exit,
+        rsi_max_hold_bars=rsi_max_hold_bars,
         ma_fast=ma_fast, ma_slow=ma_slow, bb_period=bb_period, bb_std=bb_std,
         interval=interval, count=count, initial_capital=initial_capital,
     ))

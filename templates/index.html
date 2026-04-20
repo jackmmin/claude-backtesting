@@ -479,8 +479,22 @@
         <label>RSI 기간: <input type="number" id="rsiPeriod" value="14" min="5" max="50" style="width:60px;text-align:center;"></label>
         <label>과매도 임계값: <input type="number" id="rsiThreshold" value="30" min="10" max="45" style="width:60px;text-align:center;"></label>
         <label>청산 RSI: <input type="number" id="rsiExit" value="62" min="40" max="80" style="width:60px;text-align:center;"></label>
+        <label>진입 방식:
+          <select id="rsiEntryMode" style="text-align:center;">
+            <option value="crossover">RSI 회복 후 진입</option>
+            <option value="immediate">즉시 진입</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="rsiUseTp" checked> TP 사용</label>
         <label>TP (%): <input type="number" id="rsiTp" value="7" min="2" max="20" style="width:60px;text-align:center;"></label>
+        <label><input type="checkbox" id="rsiUseSl" checked> SL 사용</label>
         <label>SL (%): <input type="number" id="rsiSl" value="4" min="1" max="15" style="width:60px;text-align:center;"></label>
+        <label><input type="checkbox" id="rsiUseRsiExit" checked> RSI 청산 사용</label>
+        <label>최대 보유봉: <input type="number" id="rsiMaxHoldBars" value="0" min="0" max="200" style="width:60px;text-align:center;"></label>
+        <label><input type="checkbox" id="rsiMaFilter"> MA 추세 필터</label>
+        <label>MA 기간: <input type="number" id="rsiMaPeriod" value="20" min="5" max="100" style="width:60px;text-align:center;"></label>
+        <label><input type="checkbox" id="rsiVolumeFilter"> 볼륨 필터</label>
+        <label>볼륨 배수: <input type="number" id="rsiVolumeMult" value="1.5" min="0.5" max="5" step="0.1" style="width:60px;text-align:center;"></label>
       </div>
       <!-- MA 골든크로스 전용 -->
       <div id="ctrl-ma" style="display:none;gap:12px;align-items:center;">
@@ -881,8 +895,17 @@
       params += `&rsi_period=${document.getElementById("rsiPeriod").value}`;
       params += `&rsi_threshold=${document.getElementById("rsiThreshold").value}`;
       params += `&rsi_exit=${document.getElementById("rsiExit").value}`;
+      params += `&rsi_entry_mode=${document.getElementById("rsiEntryMode").value}`;
+      params += `&rsi_use_tp=${document.getElementById("rsiUseTp").checked}`;
       params += `&rsi_tp=${parseFloat(document.getElementById("rsiTp").value) / 100}`;
+      params += `&rsi_use_sl=${document.getElementById("rsiUseSl").checked}`;
       params += `&rsi_sl=${-parseFloat(document.getElementById("rsiSl").value) / 100}`;
+      params += `&rsi_use_rsi_exit=${document.getElementById("rsiUseRsiExit").checked}`;
+      params += `&rsi_max_hold_bars=${document.getElementById("rsiMaxHoldBars").value}`;
+      params += `&rsi_ma_filter=${document.getElementById("rsiMaFilter").checked}`;
+      params += `&rsi_ma_period=${document.getElementById("rsiMaPeriod").value}`;
+      params += `&rsi_volume_filter=${document.getElementById("rsiVolumeFilter").checked}`;
+      params += `&rsi_volume_mult=${document.getElementById("rsiVolumeMult").value}`;
     } else if (strategy === "MA_GOLDEN_CROSS") {
       params += `&ma_fast=${document.getElementById("maFast").value}`;
       params += `&ma_slow=${document.getElementById("maSlow").value}`;
