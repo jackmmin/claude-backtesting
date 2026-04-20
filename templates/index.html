@@ -583,9 +583,7 @@
       <button class="bt-run-btn" id="btRunBtn">백테스팅 실행</button>
     </div>
 
-    <p id="strategyDesc" style="font-size:0.8rem;color:#8b949e;margin-bottom:18px;">
-      전략: 시가 + K × 전봉 변동폭 돌파 시 롱 진입 → 다음 봉 시가 청산 · 최대 1000개 캔들 수집 가능
-    </p>
+    <p id="strategyDesc" style="font-size:0.8rem;color:#8b949e;margin-bottom:18px;"></p>
 
     <div id="btLoadingMsg">
       <div class="spinner" style="margin:0 auto 12px;"></div>
@@ -896,12 +894,69 @@
     MA_GOLDEN_CROSS: "MA 골든크로스",
     BOLLINGER_BOUNCE: "볼린저밴드 반등",
   };
-  const STRATEGY_DESCS = {
-    K_VOLATILITY_BREAKOUT: "전략: 시가 + K × 전봉 변동폭 돌파 시 롱 진입 → TP/SL 청산 or 당일 종가 청산 · MA 추세 필터·볼륨 필터 선택 적용 가능",
-    RSI_OVERSOLD_BOUNCE: "전략: RSI가 과매도(30↓) 후 회복(30↑) 크로스 시 매수 → TP(기본 7%) 익절 or SL(기본 -4%) 손절 or RSI 62↑ 시 매도 · Wilder EMA RSI",
-    MA_GOLDEN_CROSS: "전략: 단기 MA가 장기 MA 상향 돌파(골든크로스) 시 다음 봉 시가 매수 → 데드크로스 시 다음 봉 시가 매도",
-    BOLLINGER_BOUNCE: "전략: 종가가 볼린저 하단밴드 하향 후 복귀 시 다음 봉 시가 매수 → 종가가 중심선 도달 시 다음 봉 시가 매도",
-  };
+  function getStrategyDesc(strategy) {
+    const g = id => document.getElementById(id);
+    const chk = id => g(id) ? g(id).checked : false;
+    const val = id => g(id) ? g(id).value : "";
+
+    if (strategy === "K_VOLATILITY_BREAKOUT") {
+      const k = val("kSlider");
+      const exit = [];
+      if (chk("kUseTp")) exit.push(`TP+${val("kTp")}%`);
+      if (chk("kUseSl")) exit.push(`SL-${val("kSl")}%`);
+      if (!exit.length) exit.push("당일종가");
+      const filter = [];
+      if (chk("kMaFilter")) filter.push(`MA${val("kMaPeriod")}봉`);
+      if (chk("kVolumeFilter")) filter.push(`볼륨${val("kVolumeMult")}x`);
+      return `진입: 시가+K(${k})×전봉변동폭 | 청산: ${exit.join(" · ")} | 필터: ${filter.length ? filter.join(" · ") : "없음"}`;
+    }
+
+    if (strategy === "RSI_OVERSOLD_BOUNCE") {
+      const period = val("rsiPeriod"), thr = val("rsiThreshold");
+      const mode = val("rsiEntryMode") === "crossover" ? "회복후진입" : "즉시진입";
+      const exit = [];
+      if (chk("rsiUseTp")) exit.push(`TP+${val("rsiTp")}%`);
+      if (chk("rsiUseSl")) exit.push(`SL-${val("rsiSl")}%`);
+      if (chk("rsiUseRsiExit")) exit.push(`RSI${val("rsiExit")}↑`);
+      const maxBars = parseInt(val("rsiMaxHoldBars"));
+      if (maxBars > 0) exit.push(`최대${maxBars}봉`);
+      if (!exit.length) exit.push("수동청산");
+      const filter = [];
+      if (chk("rsiMaFilter")) filter.push(`MA${val("rsiMaPeriod")}봉`);
+      if (chk("rsiVolumeFilter")) filter.push(`볼륨${val("rsiVolumeMult")}x`);
+      return `진입: RSI${period} <${thr} · ${mode} | 청산: ${exit.join(" · ")} | 필터: ${filter.length ? filter.join(" · ") : "없음"}`;
+    }
+
+    if (strategy === "MA_GOLDEN_CROSS") {
+      const fast = val("maFast"), slow = val("maSlow");
+      const exit = [];
+      if (chk("maUseTp")) exit.push(`TP+${val("maTp")}%`);
+      if (chk("maUseSl")) exit.push(`SL-${val("maSl")}%`);
+      if (chk("mauseMAExit")) exit.push("데드크로스");
+      const maxBars = parseInt(val("maMaxHoldBars"));
+      if (maxBars > 0) exit.push(`최대${maxBars}봉`);
+      if (!exit.length) exit.push("수동청산");
+      const filter = [];
+      if (chk("maVolumeFilter")) filter.push(`볼륨${val("maVolumeMult")}x`);
+      return `진입: MA${fast}/MA${slow} 골든크로스 | 청산: ${exit.join(" · ")} | 필터: ${filter.length ? filter.join(" · ") : "없음"}`;
+    }
+
+    if (strategy === "BOLLINGER_BOUNCE") {
+      const period = val("bbPeriod"), std = val("bbStd");
+      const exit = [];
+      if (chk("bbUseTp")) exit.push(`TP+${val("bbTp")}%`);
+      if (chk("bbUseSl")) exit.push(`SL-${val("bbSl")}%`);
+      if (chk("bbUseMiddleExit")) exit.push("중간선청산");
+      const maxBars = parseInt(val("bbMaxHoldBars"));
+      if (maxBars > 0) exit.push(`최대${maxBars}봉`);
+      if (!exit.length) exit.push("수동청산");
+      const filter = [];
+      if (chk("bbVolumeFilter")) filter.push(`볼륨${val("bbVolumeMult")}x`);
+      return `진입: BB${period}봉 σ${std} | 청산: ${exit.join(" · ")} | 필터: ${filter.length ? filter.join(" · ") : "없음"}`;
+    }
+
+    return "";
+  }
 
   // 전략 선택 변경 시 해당 전략 전용 파라미터 컨트롤만 표시하고 결과 영역 초기화
   function onStrategyChange() {
@@ -917,9 +972,19 @@
     };
     const id = map[strategy];
     if (id) document.getElementById(id).classList.add("active");
-    document.getElementById("strategyDesc").textContent = STRATEGY_DESCS[strategy] || "";
+    document.getElementById("strategyDesc").textContent = getStrategyDesc(strategy);
     document.getElementById("btResult").style.display = "none";
   }
+
+  function updateStrategyDesc() {
+    const strategy = document.getElementById("strategySelect").value;
+    document.getElementById("strategyDesc").textContent = getStrategyDesc(strategy);
+  }
+
+  document.querySelectorAll(".param-panel input, .param-panel select").forEach(el => {
+    el.addEventListener("input", updateStrategyDesc);
+    el.addEventListener("change", updateStrategyDesc);
+  });
 
   const kSlider = document.getElementById("kSlider");
   const kDisplay = document.getElementById("kValueDisplay");
@@ -1220,6 +1285,7 @@
 
   // ── 초기 로드 ────────────────────────────────────────────
   loadMarkets();
+  updateStrategyDesc();
 
   // 30초마다 티커 자동 갱신
   setInterval(() => {
