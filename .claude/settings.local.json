@@ -17,7 +17,14 @@
       "Bash(python app.py)",
       "Bash(curl -s \"http://localhost:5000/api/signals?market=KRW-BTC&count=60\")",
       "Bash(python -m json.tool --no-ensure-ascii)",
-      "Bash(python -c \"import sys; data=sys.stdin.read\\(\\); print\\(data[:1500]\\)\")"
+      "Bash(python -c \"import sys; data=sys.stdin.read\\(\\); print\\(data[:1500]\\)\")",
+      "Bash(date /T)",
+      "Bash(powershell -command \"Get-Date -Format 'yyyy-MM-dd HH:mm:ss'\")",
+      "Bash(python *)",
+      "Bash(curl -s \"http://localhost:5000/api/indicators?market=KRW-BTC&interval=days&count=30\")",
+      "Bash(curl -v \"http://localhost:5000/api/indicators?market=KRW-BTC&interval=days&count=30\")",
+      "Bash(pkill -f \"python app.py\")",
+      "Bash(powershell -command \"Get-Process python | Stop-Process -Force\")"
     ]
   },
   "model": "sonnet"

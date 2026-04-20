@@ -392,6 +392,34 @@
       <div id="tradingview-chart" style="height:480px;"></div>
     </div>
 
+    <!-- RSI 서브차트 -->
+    <div class="chart-wrap" style="margin-top:12px;padding:16px 20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <span style="font-size:0.8rem;color:#8b949e;font-weight:600;letter-spacing:0.5px;">RSI (14)</span>
+        <span id="rsiCurrentVal" style="font-size:0.85rem;font-weight:700;color:#a371f7;">-</span>
+      </div>
+      <div style="position:relative;height:140px;">
+        <canvas id="rsiChart"></canvas>
+        <div id="rsiLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8b949e;font-size:0.85rem;">
+          <div class="spinner"></div> 로드 중...
+        </div>
+      </div>
+    </div>
+
+    <!-- 거래량 서브차트 -->
+    <div class="chart-wrap" style="margin-top:12px;padding:16px 20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <span style="font-size:0.8rem;color:#8b949e;font-weight:600;letter-spacing:0.5px;">거래량 (Volume)</span>
+        <span id="volCurrentVal" style="font-size:0.85rem;font-weight:700;color:#58a6ff;">-</span>
+      </div>
+      <div style="position:relative;height:120px;">
+        <canvas id="volChart"></canvas>
+        <div id="volLoading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8b949e;font-size:0.85rem;">
+          <div class="spinner"></div> 로드 중...
+        </div>
+      </div>
+    </div>
+
     <!-- 전략 신호 카드 -->
     <div id="signalCardsContainer" style="display:none; margin-top:20px;">
       <div style="font-size:0.8rem; color:#8b949e; margin-bottom:10px; font-weight:600; letter-spacing:0.5px;">전략별 진입 신호</div>
@@ -543,6 +571,8 @@
 
 <script>
   let equityChart = null;
+  let rsiChart = null;
+  let volChart = null;
   let tvWidget = null;     // 차트 탭 TradingView 위젯 iframe
   let tvBtWidget = null;   // 백테스팅 탭 TradingView 위젯 iframe
 
@@ -634,6 +664,172 @@
     return iframe;
   }
 
+  // ── RSI / 거래량 서브차트 로드 ─────────────────────────
+  // 업비트 캔들 API → RSI·거래량 시계열을 Chart.js로 렌더링
+  async function loadIndicators(market, interval) {
+    // 로딩 표시
+    document.getElementById("rsiLoading").style.display = "flex";
+    document.getElementById("volLoading").style.display = "flex";
+    document.getElementById("rsiCurrentVal").textContent = "-";
+    document.getElementById("volCurrentVal").textContent = "-";
+
+    try {
+      const res = await fetch(`/api/indicators?market=${market}&interval=${interval}&count=200`);
+      const d = await res.json();
+      if (d.error) return;
+
+      const labels = d.labels;
+      const rsiData = d.rsi;
+      const volData = d.volume;
+
+      // RSI 현재값 표시
+      const lastRsi = rsiData.filter(v => v !== null).at(-1);
+      if (lastRsi !== null && lastRsi !== undefined) {
+        const rsiEl = document.getElementById("rsiCurrentVal");
+        rsiEl.textContent = lastRsi.toFixed(1);
+        rsiEl.style.color = lastRsi < 30 ? "#f85149" : lastRsi > 70 ? "#3fb950" : "#a371f7";
+      }
+
+      // 거래량 현재값 표시
+      const lastVol = volData.at(-1);
+      if (lastVol !== undefined) {
+        document.getElementById("volCurrentVal").textContent = formatVolume(lastVol);
+      }
+
+      _renderRsiChart(labels, rsiData);
+      _renderVolChart(labels, volData);
+
+    } catch (_) {}
+    finally {
+      document.getElementById("rsiLoading").style.display = "none";
+      document.getElementById("volLoading").style.display = "none";
+    }
+  }
+
+  function formatVolume(v) {
+    if (v >= 1e6) return (v / 1e6).toFixed(2) + "M";
+    if (v >= 1e3) return (v / 1e3).toFixed(2) + "K";
+    return v.toFixed(4);
+  }
+
+  // RSI Chart.js 차트 렌더링 — 30·70 기준선 포함
+  function _renderRsiChart(labels, rsiData) {
+    if (rsiChart) { rsiChart.destroy(); rsiChart = null; }
+    const ctx = document.getElementById("rsiChart").getContext("2d");
+    const n = labels.length;
+
+    rsiChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "RSI",
+            data: rsiData,
+            borderColor: "#a371f7",
+            borderWidth: 1.5,
+            pointRadius: 0,
+            pointHoverRadius: 3,
+            fill: false,
+            tension: 0.2,
+            spanGaps: false,
+          },
+          {
+            label: "과매수(70)",
+            data: Array(n).fill(70),
+            borderColor: "rgba(248,81,73,0.4)",
+            borderWidth: 1,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            fill: false,
+          },
+          {
+            label: "과매도(30)",
+            data: Array(n).fill(30),
+            borderColor: "rgba(63,185,80,0.4)",
+            borderWidth: 1,
+            borderDash: [4, 3],
+            pointRadius: 0,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#161b22",
+            borderColor: "#30363d",
+            borderWidth: 1,
+            titleColor: "#8b949e",
+            bodyColor: "#e6edf3",
+            filter: item => item.datasetIndex === 0,
+            callbacks: { label: ctx => ` RSI: ${ctx.parsed.y !== null ? ctx.parsed.y.toFixed(1) : "-"}` },
+          },
+        },
+        scales: {
+          x: { ticks: { color: "#8b949e", maxTicksLimit: 8, font: { size: 10 } }, grid: { color: "#21262d" } },
+          y: {
+            min: 0, max: 100,
+            ticks: { color: "#8b949e", stepSize: 20, font: { size: 10 } },
+            grid: { color: "#21262d" },
+          },
+        },
+      },
+    });
+  }
+
+  // 거래량 Chart.js 바 차트 렌더링 — 가격 등락에 따른 색상 구분
+  function _renderVolChart(labels, volData) {
+    if (volChart) { volChart.destroy(); volChart = null; }
+    const ctx = document.getElementById("volChart").getContext("2d");
+
+    volChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "거래량",
+          data: volData,
+          backgroundColor: volData.map((_, i) =>
+            i === 0 ? "rgba(88,166,255,0.6)" :
+            volData[i] >= volData[i - 1] ? "rgba(63,185,80,0.6)" : "rgba(248,81,73,0.6)"
+          ),
+          borderWidth: 0,
+          borderRadius: 1,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: "#161b22",
+            borderColor: "#30363d",
+            borderWidth: 1,
+            titleColor: "#8b949e",
+            bodyColor: "#e6edf3",
+            callbacks: { label: ctx => ` 거래량: ${formatVolume(ctx.parsed.y)}` },
+          },
+        },
+        scales: {
+          x: { ticks: { color: "#8b949e", maxTicksLimit: 8, font: { size: 10 } }, grid: { color: "#21262d" } },
+          y: {
+            ticks: { color: "#8b949e", maxTicksLimit: 4, font: { size: 10 }, callback: v => formatVolume(v) },
+            grid: { color: "#21262d" },
+          },
+        },
+      },
+    });
+  }
+
   // ── 차트 탭: TradingView 위젯 로드 ──────────────────────
   // 마켓·타임프레임 선택에 따라 TradingView 위젯 iframe 재생성
   async function loadTvChart() {
@@ -644,6 +840,7 @@
 
     tvWidget = createTvWidget("tradingview-chart", symbol, interval);
     loadTicker(market);
+    loadIndicators(market, interval);
 
     // 전략 신호 카드는 별도 API로 계속 표시
     try {
