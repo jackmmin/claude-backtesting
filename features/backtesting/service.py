@@ -220,6 +220,22 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=62,
                 })
                 in_trade = False
 
+    open_trade = None
+    if in_trade and entry_price is not None:
+        current_price = data[-1]["trade_price"]
+        raw_entry = entry_price / (1 + FEE_RATE)
+        pnl_unrealized = (current_price * (1 - FEE_RATE) - entry_price) / entry_price
+        open_trade = {
+            "date": entry_date,
+            "buy_datetime": entry_datetime,
+            "sell_datetime": "",
+            "buy_price": round(raw_entry),
+            "sell_price": round(current_price),
+            "pnl": round(pnl_unrealized, 6),
+            "win": pnl_unrealized > 0,
+            "open": True,
+        }
+
     closes = [c["trade_price"] for c in data]
     rsi_curr = _rsi(closes, period)
     rsi_prev = _rsi(closes[:-1], period)
@@ -240,6 +256,7 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=62,
     }
 
     return _build_result("RSI_OVERSOLD_BOUNCE", trades, initial_capital, current_signal,
+                         open_trade=open_trade,
                          candles=data, rsi_period=period, rsi_threshold=threshold,
                          rsi_exit=exit_threshold, rsi_tp=take_profit, rsi_sl=stop_loss,
                          entry_mode=entry_mode,
@@ -311,6 +328,22 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
                     })
                     in_trade = False
 
+    open_trade = None
+    if in_trade and entry_price is not None:
+        current_price = data[-1]["trade_price"]
+        raw_entry = entry_price / (1 + FEE_RATE)
+        pnl_unrealized = (current_price * (1 - FEE_RATE) - entry_price) / entry_price
+        open_trade = {
+            "date": entry_date,
+            "buy_datetime": entry_datetime,
+            "sell_datetime": "",
+            "buy_price": round(raw_entry),
+            "sell_price": round(current_price),
+            "pnl": round(pnl_unrealized, 6),
+            "win": pnl_unrealized > 0,
+            "open": True,
+        }
+
     closes = [c["trade_price"] for c in data]
     ma_fast_val = _sma(closes, fast)
     ma_slow_val = _sma(closes, slow)
@@ -332,6 +365,7 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
     }
 
     return _build_result("MA_GOLDEN_CROSS", trades, initial_capital, current_signal,
+                         open_trade=open_trade,
                          candles=data, ma_fast=fast, ma_slow=slow, total_candles=len(data))
 
 
@@ -397,6 +431,22 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
                     })
                     in_trade = False
 
+    open_trade = None
+    if in_trade and entry_price is not None:
+        current_price = data[-1]["trade_price"]
+        raw_entry = entry_price / (1 + FEE_RATE)
+        pnl_unrealized = (current_price * (1 - FEE_RATE) - entry_price) / entry_price
+        open_trade = {
+            "date": entry_date,
+            "buy_datetime": entry_datetime,
+            "sell_datetime": "",
+            "buy_price": round(raw_entry),
+            "sell_price": round(current_price),
+            "pnl": round(pnl_unrealized, 6),
+            "win": pnl_unrealized > 0,
+            "open": True,
+        }
+
     closes = [c["trade_price"] for c in data]
     last = closes[-period:] if len(closes) >= period else closes
     middle = sum(last) / len(last)
@@ -416,12 +466,13 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
     }
 
     return _build_result("BOLLINGER_BOUNCE", trades, initial_capital, current_signal,
+                         open_trade=open_trade,
                          candles=data, bb_period=period, bb_std=std_mult, total_candles=len(data))
 
 
 # ── 공통 결과 빌더 ─────────────────────────────────────────────────────────────
 
-def _build_result(strategy, trades, initial_capital, current_signal, candles=None, **extra):
+def _build_result(strategy, trades, initial_capital, current_signal, candles=None, open_trade=None, **extra):
     candle_data = []
     if candles:
         candle_data = [
@@ -445,7 +496,12 @@ def _build_result(strategy, trades, initial_capital, current_signal, candles=Non
     }
     base.update(extra)
 
+    if not trades and open_trade is None:
+        return base
+
     if not trades:
+        if open_trade is not None:
+            base["trades"] = [open_trade]
         return base
 
     wins = sum(1 for t in trades if t["win"])
@@ -465,8 +521,13 @@ def _build_result(strategy, trades, initial_capital, current_signal, candles=Non
     trade_markers = [
         {"buy_datetime": t["buy_datetime"], "sell_datetime": t["sell_datetime"], "win": t["win"]}
         for t in trades
-        if "buy_datetime" in t and "sell_datetime" in t
+        if "buy_datetime" in t and t.get("sell_datetime")
     ]
+
+    displayed = trades[-50:]
+    if open_trade is not None:
+        displayed = displayed + [open_trade]
+
     base.update({
         "total_trades": len(trades),
         "win_rate": round(win_rate, 4),
@@ -475,7 +536,7 @@ def _build_result(strategy, trades, initial_capital, current_signal, candles=Non
         "final_value": portfolio,
         "profit_loss": portfolio - initial_capital,
         "equity_curve": equity_curve,
-        "trades": trades[-50:],
+        "trades": displayed,
         "trade_markers": trade_markers,
     })
     return base

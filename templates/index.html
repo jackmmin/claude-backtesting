@@ -1107,18 +1107,23 @@
     const tbody = document.getElementById("tradesBody");
     const trades = [...d.trades].reverse().slice(0, 50);
     document.getElementById("tradesTitle").textContent = `최근 거래 내역 (${trades.length}건)`;
-    tbody.innerHTML = trades.map((t, idx) => `
-      <tr>
+    tbody.innerHTML = trades.map((t, idx) => {
+      const isOpen = !!t.open;
+      const pnlColor = isOpen ? '#8b949e' : (t.pnl >= 0 ? '#3fb950' : '#f85149');
+      const pnlText = (t.pnl >= 0 ? "+" : "") + pct(t.pnl) + (isOpen ? " *" : "");
+      const krwText = isOpen ? "-" : `<span style="color:${t.krw_pnl >= 0 ? '#3fb950' : '#f85149'}">${(t.krw_pnl >= 0 ? "+" : "") + fmt(t.krw_pnl)} ₩</span>`;
+      const statusText = isOpen ? `<span style="color:#e3b341">보유중</span>` : `<span style="color:${t.win ? '#3fb950' : '#f85149'}">${t.win ? "✓ 수익" : "✗ 손실"}</span>`;
+      return `<tr${isOpen ? ' style="background:rgba(227,179,65,0.06)"' : ''}>
         <td style="text-align:center;color:#8b949e">${trades.length - idx}</td>
         <td style="text-align:left;color:#8b949e">${(t.buy_datetime || "").slice(0, 16).replace("T", " ")}</td>
         <td style="text-align:left;color:#8b949e">${(t.sell_datetime || "").slice(0, 16).replace("T", " ")}</td>
         <td>${fmt(t.buy_price)} ₩</td>
         <td>${fmt(t.sell_price)} ₩</td>
-        <td style="color:${t.pnl >= 0 ? '#3fb950' : '#f85149'}">${(t.pnl >= 0 ? "+" : "") + pct(t.pnl)}</td>
-        <td style="color:${t.krw_pnl >= 0 ? '#3fb950' : '#f85149'}">${(t.krw_pnl >= 0 ? "+" : "") + fmt(t.krw_pnl)} ₩</td>
-        <td style="color:${t.win ? '#3fb950' : '#f85149'}">${t.win ? "✓ 수익" : "✗ 손실"}</td>
-      </tr>
-    `).join("");
+        <td style="color:${pnlColor}">${pnlText}</td>
+        <td>${krwText}</td>
+        <td>${statusText}</td>
+      </tr>`;
+    }).join("");
   }
 
   // ── 초기 로드 ────────────────────────────────────────────
