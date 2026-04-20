@@ -258,6 +258,21 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=62,
     else:
         sig_triggered = (rsi_curr is not None and rsi_prev is not None
                          and rsi_curr < threshold and rsi_prev >= threshold)
+
+    # 마지막 캔들에서 신호 발생 시 진입 예정 포지션을 보유중으로 표시
+    if not in_trade and sig_triggered:
+        cp = data[-1]["trade_price"]
+        open_trade = {
+            "date": data[-1]["candle_date_time_kst"][:10],
+            "buy_datetime": data[-1]["candle_date_time_kst"],
+            "sell_datetime": "",
+            "buy_price": round(cp),
+            "sell_price": round(cp),
+            "pnl": 0.0,
+            "win": False,
+            "open": True,
+        }
+
     current_signal = {
         "date": data[-1]["candle_date_time_kst"][:10],
         "rsi_value": round(rsi_curr, 2) if rsi_curr is not None else None,
@@ -375,6 +390,21 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000,
         and ma_fast_val is not None and ma_slow_val is not None
         and ma_fast_prev <= ma_slow_prev and ma_fast_val > ma_slow_val
     )
+
+    # 마지막 캔들에서 골든크로스 발생 시 진입 예정 포지션을 보유중으로 표시
+    if not in_trade and golden_cross:
+        cp = data[-1]["trade_price"]
+        open_trade = {
+            "date": data[-1]["candle_date_time_kst"][:10],
+            "buy_datetime": data[-1]["candle_date_time_kst"],
+            "sell_datetime": "",
+            "buy_price": round(cp),
+            "sell_price": round(cp),
+            "pnl": 0.0,
+            "win": False,
+            "open": True,
+        }
+
     current_signal = {
         "date": data[-1]["candle_date_time_kst"][:10],
         "ma_fast": round(ma_fast_val) if ma_fast_val is not None else None,
@@ -493,6 +523,20 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
     lower = middle - std_mult * std
     upper = middle + std_mult * std
     bounce = len(closes) >= 2 and closes[-2] < lower and closes[-1] >= lower
+
+    # 마지막 캔들에서 반등 신호 발생 시 진입 예정 포지션을 보유중으로 표시
+    if not in_trade and bounce:
+        cp = data[-1]["trade_price"]
+        open_trade = {
+            "date": data[-1]["candle_date_time_kst"][:10],
+            "buy_datetime": data[-1]["candle_date_time_kst"],
+            "sell_datetime": "",
+            "buy_price": round(cp),
+            "sell_price": round(cp),
+            "pnl": 0.0,
+            "win": False,
+            "open": True,
+        }
 
     current_signal = {
         "date": data[-1]["candle_date_time_kst"][:10],
