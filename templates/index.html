@@ -260,6 +260,39 @@
     .bt-run-btn:hover { background: #388bfd; border-color: #388bfd; }
     .bt-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    .param-panel {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-top: 4px;
+    }
+    .param-panel.active { display: flex; }
+    .param-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .param-section-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #58a6ff;
+      letter-spacing: 0.6px;
+      min-width: 60px;
+      text-transform: uppercase;
+    }
+    .param-divider {
+      width: 1px;
+      height: 16px;
+      background: #30363d;
+      margin: 0 2px;
+    }
+
     .signal-box {
       border-radius: 10px;
       padding: 20px 24px;
@@ -457,54 +490,95 @@
         <input type="text" class="wide" id="initialCapital" value="1,000,000" inputmode="numeric">
       </label>
       <!-- K변동성 돌파 전용 -->
-      <div id="ctrl-k" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-        <label>
-          K 값:
-          <input type="range" id="kSlider" min="0.1" max="1.0" step="0.05" value="0.5">
-          <span id="kValueDisplay">0.5</span>
-        </label>
-        <label>TP (%): <input type="number" id="kTp" value="5" min="1" max="15" style="width:60px;text-align:center;"></label>
-        <label>SL (%): <input type="number" id="kSl" value="3" min="1" max="10" style="width:60px;text-align:center;"></label>
-        <label style="display:flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="kMaFilter"> MA 추세 필터
-          <input type="number" id="kMaPeriod" value="20" min="5" max="50" style="width:55px;text-align:center;margin-left:4px;" title="MA 기간">
-        </label>
-        <label style="display:flex;align-items:center;gap:4px;">
-          <input type="checkbox" id="kVolumeFilter"> 볼륨 필터
-          <input type="number" id="kVolumeMult" value="1.5" min="1.0" max="5.0" step="0.1" style="width:55px;text-align:center;margin-left:4px;" title="평균 볼륨 배수">x
-        </label>
+      <div id="ctrl-k" class="param-panel active">
+        <div class="param-row">
+          <span class="param-section-label">진입</span>
+          <label>K 값: <input type="range" id="kSlider" min="0.1" max="1.0" step="0.05" value="0.5"> <span id="kValueDisplay">0.5</span></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">청산</span>
+          <label><input type="checkbox" id="kUseTp" checked> TP (%): <input type="number" id="kTp" value="5" min="1" max="30" style="width:58px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="kUseSl" checked> SL (%): <input type="number" id="kSl" value="3" min="1" max="20" style="width:58px;"></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">필터</span>
+          <label><input type="checkbox" id="kMaFilter"> MA 추세 필터  기간: <input type="number" id="kMaPeriod" value="20" min="5" max="100" style="width:55px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="kVolumeFilter"> 볼륨 필터  배수: <input type="number" id="kVolumeMult" value="1.5" min="0.5" max="10" step="0.1" style="width:55px;">x</label>
+        </div>
       </div>
+
       <!-- RSI 과매도 반등 전용 -->
-      <div id="ctrl-rsi" style="display:none;gap:12px;align-items:center;flex-wrap:wrap;">
-        <label>RSI 기간: <input type="number" id="rsiPeriod" value="14" min="5" max="50" style="width:60px;text-align:center;"></label>
-        <label>과매도 임계값: <input type="number" id="rsiThreshold" value="30" min="10" max="45" style="width:60px;text-align:center;"></label>
-        <label>청산 RSI: <input type="number" id="rsiExit" value="62" min="40" max="80" style="width:60px;text-align:center;"></label>
-        <label>진입 방식:
-          <select id="rsiEntryMode" style="text-align:center;">
-            <option value="crossover">RSI 회복 후 진입</option>
-            <option value="immediate">즉시 진입</option>
-          </select>
-        </label>
-        <label><input type="checkbox" id="rsiUseTp" checked> TP 사용</label>
-        <label>TP (%): <input type="number" id="rsiTp" value="7" min="2" max="20" style="width:60px;text-align:center;"></label>
-        <label><input type="checkbox" id="rsiUseSl" checked> SL 사용</label>
-        <label>SL (%): <input type="number" id="rsiSl" value="4" min="1" max="15" style="width:60px;text-align:center;"></label>
-        <label><input type="checkbox" id="rsiUseRsiExit" checked> RSI 청산 사용</label>
-        <label>최대 보유봉: <input type="number" id="rsiMaxHoldBars" value="0" min="0" max="200" style="width:60px;text-align:center;"></label>
-        <label><input type="checkbox" id="rsiMaFilter"> MA 추세 필터</label>
-        <label>MA 기간: <input type="number" id="rsiMaPeriod" value="20" min="5" max="100" style="width:60px;text-align:center;"></label>
-        <label><input type="checkbox" id="rsiVolumeFilter"> 볼륨 필터</label>
-        <label>볼륨 배수: <input type="number" id="rsiVolumeMult" value="1.5" min="0.5" max="5" step="0.1" style="width:60px;text-align:center;"></label>
+      <div id="ctrl-rsi" class="param-panel">
+        <div class="param-row">
+          <span class="param-section-label">진입</span>
+          <label>RSI 기간: <input type="number" id="rsiPeriod" value="14" min="5" max="50" style="width:58px;"></label>
+          <label>과매도 임계: <input type="number" id="rsiThreshold" value="30" min="10" max="45" style="width:58px;"></label>
+          <label>진입 방식: <select id="rsiEntryMode"><option value="crossover">RSI 회복 후 진입</option><option value="immediate">즉시 진입</option></select></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">청산</span>
+          <label><input type="checkbox" id="rsiUseTp" checked> TP (%): <input type="number" id="rsiTp" value="7" min="1" max="30" style="width:58px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="rsiUseSl" checked> SL (%): <input type="number" id="rsiSl" value="4" min="1" max="20" style="width:58px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="rsiUseRsiExit" checked> RSI 청산: <input type="number" id="rsiExit" value="62" min="40" max="90" style="width:58px;"></label>
+          <div class="param-divider"></div>
+          <label>최대 보유봉: <input type="number" id="rsiMaxHoldBars" value="0" min="0" max="500" style="width:58px;"></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">필터</span>
+          <label><input type="checkbox" id="rsiMaFilter"> MA 추세 필터  기간: <input type="number" id="rsiMaPeriod" value="20" min="5" max="100" style="width:55px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="rsiVolumeFilter"> 볼륨 필터  배수: <input type="number" id="rsiVolumeMult" value="1.5" min="0.5" max="10" step="0.1" style="width:55px;">x</label>
+        </div>
       </div>
+
       <!-- MA 골든크로스 전용 -->
-      <div id="ctrl-ma" style="display:none;gap:12px;align-items:center;">
-        <label>단기 MA: <input type="number" id="maFast" value="5" min="3" max="20" style="width:60px;text-align:center;"></label>
-        <label>장기 MA: <input type="number" id="maSlow" value="20" min="10" max="100" style="width:70px;text-align:center;"></label>
+      <div id="ctrl-ma" class="param-panel">
+        <div class="param-row">
+          <span class="param-section-label">진입</span>
+          <label>단기 MA: <input type="number" id="maFast" value="5" min="3" max="50" style="width:58px;"></label>
+          <label>장기 MA: <input type="number" id="maSlow" value="20" min="5" max="200" style="width:65px;"></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">청산</span>
+          <label><input type="checkbox" id="maUseTp" checked> TP (%): <input type="number" id="maTp" value="5" min="1" max="30" style="width:58px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="maUseSl"> SL (%): <input type="number" id="maSl" value="3" min="1" max="20" style="width:58px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="mauseMAExit" checked> 데드크로스 청산</label>
+          <div class="param-divider"></div>
+          <label>최대 보유봉: <input type="number" id="maMaxHoldBars" value="0" min="0" max="500" style="width:58px;"></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">필터</span>
+          <label><input type="checkbox" id="maVolumeFilter"> 볼륨 필터  배수: <input type="number" id="maVolumeMult" value="1.5" min="0.5" max="10" step="0.1" style="width:55px;">x</label>
+        </div>
       </div>
+
       <!-- 볼린저밴드 반등 전용 -->
-      <div id="ctrl-bb" style="display:none;gap:12px;align-items:center;">
-        <label>기간: <input type="number" id="bbPeriod" value="20" min="5" max="50" style="width:60px;text-align:center;"></label>
-        <label>배수(σ): <input type="number" id="bbStd" value="2.0" min="1.0" max="3.0" step="0.1" style="width:65px;text-align:center;"></label>
+      <div id="ctrl-bb" class="param-panel">
+        <div class="param-row">
+          <span class="param-section-label">진입</span>
+          <label>기간: <input type="number" id="bbPeriod" value="20" min="5" max="100" style="width:58px;"></label>
+          <label>표준편차 (σ): <input type="number" id="bbStd" value="2.0" min="0.5" max="4.0" step="0.1" style="width:58px;"></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">청산</span>
+          <label><input type="checkbox" id="bbUseTp" checked> TP (%): <input type="number" id="bbTp" value="5" min="1" max="30" style="width:58px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="bbUseSl"> SL (%): <input type="number" id="bbSl" value="3" min="1" max="20" style="width:58px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="bbUseMiddleExit" checked> 중간선 청산</label>
+          <div class="param-divider"></div>
+          <label>최대 보유봉: <input type="number" id="bbMaxHoldBars" value="0" min="0" max="500" style="width:58px;"></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">필터</span>
+          <label><input type="checkbox" id="bbVolumeFilter"> 볼륨 필터  배수: <input type="number" id="bbVolumeMult" value="1.5" min="0.5" max="10" step="0.1" style="width:55px;">x</label>
+        </div>
       </div>
       <button class="bt-run-btn" id="btRunBtn">백테스팅 실행</button>
     </div>
@@ -833,7 +907,7 @@
   function onStrategyChange() {
     const strategy = document.getElementById("strategySelect").value;
     ["ctrl-k", "ctrl-rsi", "ctrl-ma", "ctrl-bb"].forEach(id => {
-      document.getElementById(id).style.display = "none";
+      document.getElementById(id).classList.remove("active");
     });
     const map = {
       K_VOLATILITY_BREAKOUT: "ctrl-k",
@@ -842,7 +916,7 @@
       BOLLINGER_BOUNCE: "ctrl-bb",
     };
     const id = map[strategy];
-    if (id) document.getElementById(id).style.display = "flex";
+    if (id) document.getElementById(id).classList.add("active");
     document.getElementById("strategyDesc").textContent = STRATEGY_DESCS[strategy] || "";
     document.getElementById("btResult").style.display = "none";
   }
@@ -885,22 +959,24 @@
     let params = `market=${market}&strategy=${strategy}&interval=${interval}&count=${count}&initial_capital=${initialCapital}`;
     if (strategy === "K_VOLATILITY_BREAKOUT") {
       params += `&k=${parseFloat(kSlider.value)}`;
+      params += `&k_use_tp=${document.getElementById("kUseTp").checked}`;
       params += `&k_tp=${parseFloat(document.getElementById("kTp").value) / 100}`;
+      params += `&k_use_sl=${document.getElementById("kUseSl").checked}`;
       params += `&k_sl=${-parseFloat(document.getElementById("kSl").value) / 100}`;
-      const kMaFilter = document.getElementById("kMaFilter").checked;
-      params += `&k_ma_filter=${kMaFilter}&k_ma_period=${document.getElementById("kMaPeriod").value}`;
-      const kVolumeFilter = document.getElementById("kVolumeFilter").checked;
-      params += `&k_volume_filter=${kVolumeFilter}&k_volume_mult=${document.getElementById("kVolumeMult").value}`;
+      params += `&k_ma_filter=${document.getElementById("kMaFilter").checked}`;
+      params += `&k_ma_period=${document.getElementById("kMaPeriod").value}`;
+      params += `&k_volume_filter=${document.getElementById("kVolumeFilter").checked}`;
+      params += `&k_volume_mult=${document.getElementById("kVolumeMult").value}`;
     } else if (strategy === "RSI_OVERSOLD_BOUNCE") {
       params += `&rsi_period=${document.getElementById("rsiPeriod").value}`;
       params += `&rsi_threshold=${document.getElementById("rsiThreshold").value}`;
-      params += `&rsi_exit=${document.getElementById("rsiExit").value}`;
       params += `&rsi_entry_mode=${document.getElementById("rsiEntryMode").value}`;
       params += `&rsi_use_tp=${document.getElementById("rsiUseTp").checked}`;
       params += `&rsi_tp=${parseFloat(document.getElementById("rsiTp").value) / 100}`;
       params += `&rsi_use_sl=${document.getElementById("rsiUseSl").checked}`;
       params += `&rsi_sl=${-parseFloat(document.getElementById("rsiSl").value) / 100}`;
       params += `&rsi_use_rsi_exit=${document.getElementById("rsiUseRsiExit").checked}`;
+      params += `&rsi_exit=${document.getElementById("rsiExit").value}`;
       params += `&rsi_max_hold_bars=${document.getElementById("rsiMaxHoldBars").value}`;
       params += `&rsi_ma_filter=${document.getElementById("rsiMaFilter").checked}`;
       params += `&rsi_ma_period=${document.getElementById("rsiMaPeriod").value}`;
@@ -909,9 +985,25 @@
     } else if (strategy === "MA_GOLDEN_CROSS") {
       params += `&ma_fast=${document.getElementById("maFast").value}`;
       params += `&ma_slow=${document.getElementById("maSlow").value}`;
+      params += `&ma_use_tp=${document.getElementById("maUseTp").checked}`;
+      params += `&ma_tp=${parseFloat(document.getElementById("maTp").value) / 100}`;
+      params += `&ma_use_sl=${document.getElementById("maUseSl").checked}`;
+      params += `&ma_sl=${-parseFloat(document.getElementById("maSl").value) / 100}`;
+      params += `&ma_use_ma_exit=${document.getElementById("mauseMAExit").checked}`;
+      params += `&ma_volume_filter=${document.getElementById("maVolumeFilter").checked}`;
+      params += `&ma_volume_mult=${document.getElementById("maVolumeMult").value}`;
+      params += `&ma_max_hold_bars=${document.getElementById("maMaxHoldBars").value}`;
     } else if (strategy === "BOLLINGER_BOUNCE") {
       params += `&bb_period=${document.getElementById("bbPeriod").value}`;
       params += `&bb_std=${document.getElementById("bbStd").value}`;
+      params += `&bb_use_tp=${document.getElementById("bbUseTp").checked}`;
+      params += `&bb_tp=${parseFloat(document.getElementById("bbTp").value) / 100}`;
+      params += `&bb_use_sl=${document.getElementById("bbUseSl").checked}`;
+      params += `&bb_sl=${-parseFloat(document.getElementById("bbSl").value) / 100}`;
+      params += `&bb_use_middle_exit=${document.getElementById("bbUseMiddleExit").checked}`;
+      params += `&bb_volume_filter=${document.getElementById("bbVolumeFilter").checked}`;
+      params += `&bb_volume_mult=${document.getElementById("bbVolumeMult").value}`;
+      params += `&bb_max_hold_bars=${document.getElementById("bbMaxHoldBars").value}`;
     }
 
     const btn = document.getElementById("btRunBtn");

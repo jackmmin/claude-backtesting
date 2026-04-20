@@ -10,7 +10,7 @@ def run_backtest(
     exchange="upbit", market="KRW-BTC",
     strategy="K_VOLATILITY_BREAKOUT",
     k=0.5,
-    k_tp=0.05, k_sl=-0.03,
+    k_tp=0.05, k_sl=-0.03, k_use_tp=True, k_use_sl=True,
     k_ma_filter=False, k_ma_period=20,
     k_volume_filter=False, k_volume_mult=1.5,
     rsi_period=14, rsi_threshold=30, rsi_exit=62, rsi_tp=0.07, rsi_sl=-0.04,
@@ -20,7 +20,11 @@ def run_backtest(
     rsi_use_tp=True, rsi_use_sl=True, rsi_use_rsi_exit=True,
     rsi_max_hold_bars=0,
     ma_fast=5, ma_slow=20,
+    ma_use_tp=True, ma_tp=0.05, ma_use_sl=False, ma_sl=-0.03,
+    ma_use_ma_exit=True, ma_volume_filter=False, ma_volume_mult=1.5, ma_max_hold_bars=0,
     bb_period=20, bb_std=2.0,
+    bb_use_tp=True, bb_tp=0.05, bb_use_sl=False, bb_sl=-0.03,
+    bb_use_middle_exit=True, bb_volume_filter=False, bb_volume_mult=1.5, bb_max_hold_bars=0,
     interval="days", count=200, initial_capital=1000000,
 ):
     exch = get_exchange(exchange)
@@ -33,7 +37,7 @@ def run_backtest(
 
     if strategy == "K_VOLATILITY_BREAKOUT":
         return _k_volatility_backtest(data, k=k, initial_capital=initial_capital,
-                                      k_tp=k_tp, k_sl=k_sl,
+                                      k_tp=k_tp, k_sl=k_sl, k_use_tp=k_use_tp, k_use_sl=k_use_sl,
                                       k_ma_filter=k_ma_filter, k_ma_period=k_ma_period,
                                       k_volume_filter=k_volume_filter, k_volume_mult=k_volume_mult)
     if strategy == "RSI_OVERSOLD_BOUNCE":
@@ -46,16 +50,24 @@ def run_backtest(
                                       use_tp=rsi_use_tp, use_sl=rsi_use_sl, use_rsi_exit=rsi_use_rsi_exit,
                                       max_hold_bars=rsi_max_hold_bars)
     if strategy == "MA_GOLDEN_CROSS":
-        return _ma_golden_cross_backtest(data, fast=ma_fast, slow=ma_slow, initial_capital=initial_capital)
+        return _ma_golden_cross_backtest(data, fast=ma_fast, slow=ma_slow, initial_capital=initial_capital,
+                                         ma_use_tp=ma_use_tp, ma_tp=ma_tp, ma_use_sl=ma_use_sl, ma_sl=ma_sl,
+                                         ma_use_ma_exit=ma_use_ma_exit,
+                                         ma_volume_filter=ma_volume_filter, ma_volume_mult=ma_volume_mult,
+                                         ma_max_hold_bars=ma_max_hold_bars)
     if strategy == "BOLLINGER_BOUNCE":
-        return _bollinger_bounce_backtest(data, period=bb_period, std_mult=bb_std, initial_capital=initial_capital)
+        return _bollinger_bounce_backtest(data, period=bb_period, std_mult=bb_std, initial_capital=initial_capital,
+                                          bb_use_tp=bb_use_tp, bb_tp=bb_tp, bb_use_sl=bb_use_sl, bb_sl=bb_sl,
+                                          bb_use_middle_exit=bb_use_middle_exit,
+                                          bb_volume_filter=bb_volume_filter, bb_volume_mult=bb_volume_mult,
+                                          bb_max_hold_bars=bb_max_hold_bars)
     return {"error": f"알 수 없는 전략: {strategy}"}
 
 
 # ── K변동성 돌파 ──────────────────────────────────────────────────────────────
 
 def _k_volatility_backtest(data, k=0.5, initial_capital=1000000,
-                            k_tp=0.05, k_sl=-0.03,
+                            k_tp=0.05, k_sl=-0.03, k_use_tp=True, k_use_sl=True,
                             k_ma_filter=False, k_ma_period=20,
                             k_volume_filter=False, k_volume_mult=1.5):
     trades = []
@@ -90,9 +102,9 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000,
             tp_price = target * (1 + k_tp)
             sl_price = target * (1 + k_sl)
 
-            if curr["high_price"] >= tp_price:
+            if k_use_tp and curr["high_price"] >= tp_price:
                 raw_sell = tp_price
-            elif curr["low_price"] <= sl_price:
+            elif k_use_sl and curr["low_price"] <= sl_price:
                 raw_sell = sl_price
             else:
                 raw_sell = curr["trade_price"]
@@ -128,6 +140,7 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000,
 
     return _build_result("K_VOLATILITY_BREAKOUT", trades, initial_capital, current_signal,
                          candles=data, k=k, k_tp=k_tp, k_sl=k_sl,
+                         k_use_tp=k_use_tp, k_use_sl=k_use_sl,
                          k_ma_filter=k_ma_filter, k_ma_period=k_ma_period,
                          k_volume_filter=k_volume_filter, k_volume_mult=k_volume_mult,
                          total_candles=len(data))
@@ -269,12 +282,18 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=62,
 
 # ── MA 골든크로스 ──────────────────────────────────────────────────────────────
 
-def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
+def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000,
+                               ma_use_tp=True, ma_tp=0.05,
+                               ma_use_sl=False, ma_sl=-0.03,
+                               ma_use_ma_exit=True,
+                               ma_volume_filter=False, ma_volume_mult=1.5,
+                               ma_max_hold_bars=0):
     trades = []
     in_trade = False
     entry_price = None
     entry_date = None
     entry_datetime = None
+    hold_bars = 0
 
     for i in range(slow + 1, len(data)):
         closes_curr = [c["trade_price"] for c in data[:i + 1]]
@@ -290,43 +309,50 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
 
         if not in_trade:
             if ma_fast_prev <= ma_slow_prev and ma_fast_curr > ma_slow_curr:
+                if ma_volume_filter:
+                    vol_window = data[max(0, i - 20):i]
+                    vols = [c.get("candle_acc_trade_volume", 0) for c in vol_window]
+                    avg_vol = sum(vols) / len(vol_window) if vol_window else 0
+                    curr_vol = data[i].get("candle_acc_trade_volume", 0)
+                    if avg_vol > 0 and curr_vol < avg_vol * ma_volume_mult:
+                        continue
                 if i + 1 < len(data):
-                    entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)  # 매수 수수료 반영
+                    entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)
                     entry_date = data[i]["candle_date_time_kst"][:10]
-                    entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
+                    entry_datetime = data[i + 1]["candle_date_time_kst"]
                     in_trade = True
+                    hold_bars = 0
         else:
-            tp_price = (entry_price / (1 + FEE_RATE)) * (1 + TAKE_PROFIT)
-            if data[i]["high_price"] >= tp_price:
-                # TP 도달: 해당 봉 고가 기준 익절 청산
-                raw_sell = tp_price
-                sell_price = raw_sell * (1 - FEE_RATE)
+            hold_bars += 1
+            raw_entry = entry_price / (1 + FEE_RATE)
+            tp_price = raw_entry * (1 + ma_tp)
+            sl_price = raw_entry * (1 + ma_sl)
+            exited_sell = None
+            exited_dt = data[i]["candle_date_time_kst"]
+
+            if ma_use_tp and data[i]["high_price"] >= tp_price:
+                exited_sell = tp_price
+            elif ma_use_sl and data[i]["low_price"] <= sl_price:
+                exited_sell = sl_price
+            elif ma_use_ma_exit and ma_fast_prev >= ma_slow_prev and ma_fast_curr < ma_slow_curr:
+                if i + 1 < len(data):
+                    exited_sell = data[i + 1]["opening_price"]
+            elif ma_max_hold_bars > 0 and hold_bars >= ma_max_hold_bars:
+                exited_sell = data[i]["trade_price"]
+
+            if exited_sell is not None:
+                sell_price = exited_sell * (1 - FEE_RATE)
                 pnl = (sell_price - entry_price) / entry_price
                 trades.append({
                     "date": entry_date,
                     "buy_datetime": entry_datetime,
-                    "sell_datetime": data[i]["candle_date_time_kst"],
-                    "buy_price": round(entry_price / (1 + FEE_RATE)),
-                    "sell_price": round(raw_sell),
+                    "sell_datetime": exited_dt,
+                    "buy_price": round(raw_entry),
+                    "sell_price": round(exited_sell),
                     "pnl": round(pnl, 6),
                     "win": pnl > 0,
                 })
                 in_trade = False
-            elif ma_fast_prev >= ma_slow_prev and ma_fast_curr < ma_slow_curr:
-                if i + 1 < len(data):
-                    raw_sell = data[i + 1]["opening_price"]
-                    sell_price = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
-                    pnl = (sell_price - entry_price) / entry_price
-                    trades.append({
-                        "date": entry_date,
-                        "buy_datetime": entry_datetime,
-                        "sell_datetime": data[i]["candle_date_time_kst"],
-                        "buy_price": round(entry_price / (1 + FEE_RATE)),  # 표시용: 수수료 전 가격
-                        "sell_price": round(raw_sell),  # 표시용: 수수료 전 가격
-                        "pnl": round(pnl, 6),
-                        "win": pnl > 0,
-                    })
-                    in_trade = False
 
     open_trade = None
     if in_trade and entry_price is not None:
@@ -334,14 +360,9 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
         raw_entry = entry_price / (1 + FEE_RATE)
         pnl_unrealized = (current_price * (1 - FEE_RATE) - entry_price) / entry_price
         open_trade = {
-            "date": entry_date,
-            "buy_datetime": entry_datetime,
-            "sell_datetime": "",
-            "buy_price": round(raw_entry),
-            "sell_price": round(current_price),
-            "pnl": round(pnl_unrealized, 6),
-            "win": pnl_unrealized > 0,
-            "open": True,
+            "date": entry_date, "buy_datetime": entry_datetime, "sell_datetime": "",
+            "buy_price": round(raw_entry), "sell_price": round(current_price),
+            "pnl": round(pnl_unrealized, 6), "win": pnl_unrealized > 0, "open": True,
         }
 
     closes = [c["trade_price"] for c in data]
@@ -366,17 +387,28 @@ def _ma_golden_cross_backtest(data, fast=5, slow=20, initial_capital=1000000):
 
     return _build_result("MA_GOLDEN_CROSS", trades, initial_capital, current_signal,
                          open_trade=open_trade,
-                         candles=data, ma_fast=fast, ma_slow=slow, total_candles=len(data))
+                         candles=data, ma_fast=fast, ma_slow=slow,
+                         ma_use_tp=ma_use_tp, ma_tp=ma_tp, ma_use_sl=ma_use_sl, ma_sl=ma_sl,
+                         ma_use_ma_exit=ma_use_ma_exit,
+                         ma_volume_filter=ma_volume_filter, ma_volume_mult=ma_volume_mult,
+                         ma_max_hold_bars=ma_max_hold_bars,
+                         total_candles=len(data))
 
 
 # ── 볼린저밴드 반등 ────────────────────────────────────────────────────────────
 
-def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=1000000):
+def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=1000000,
+                                bb_use_tp=True, bb_tp=0.05,
+                                bb_use_sl=False, bb_sl=-0.03,
+                                bb_use_middle_exit=True,
+                                bb_volume_filter=False, bb_volume_mult=1.5,
+                                bb_max_hold_bars=0):
     trades = []
     in_trade = False
     entry_price = None
     entry_date = None
     entry_datetime = None
+    hold_bars = 0
 
     for i in range(period + 1, len(data)):
         closes = [c["trade_price"] for c in data[:i + 1]]
@@ -393,43 +425,50 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
 
         if not in_trade:
             if prev_close < lower and curr_close >= lower:
+                if bb_volume_filter:
+                    vol_window = data[max(0, i - 20):i]
+                    vols = [c.get("candle_acc_trade_volume", 0) for c in vol_window]
+                    avg_vol = sum(vols) / len(vol_window) if vol_window else 0
+                    curr_vol = data[i].get("candle_acc_trade_volume", 0)
+                    if avg_vol > 0 and curr_vol < avg_vol * bb_volume_mult:
+                        continue
                 if i + 1 < len(data):
-                    entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)  # 매수 수수료 반영
+                    entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)
                     entry_date = data[i]["candle_date_time_kst"][:10]
-                    entry_datetime = data[i + 1]["candle_date_time_kst"]  # 실제 체결 봉 datetime
+                    entry_datetime = data[i + 1]["candle_date_time_kst"]
                     in_trade = True
+                    hold_bars = 0
         else:
-            tp_price = (entry_price / (1 + FEE_RATE)) * (1 + TAKE_PROFIT)
-            if data[i]["high_price"] >= tp_price:
-                # TP 도달: 해당 봉 고가 기준 익절 청산
-                raw_sell = tp_price
-                sell_price = raw_sell * (1 - FEE_RATE)
+            hold_bars += 1
+            raw_entry = entry_price / (1 + FEE_RATE)
+            tp_price = raw_entry * (1 + bb_tp)
+            sl_price = raw_entry * (1 + bb_sl)
+            exited_sell = None
+            exited_dt = data[i]["candle_date_time_kst"]
+
+            if bb_use_tp and data[i]["high_price"] >= tp_price:
+                exited_sell = tp_price
+            elif bb_use_sl and data[i]["low_price"] <= sl_price:
+                exited_sell = sl_price
+            elif bb_use_middle_exit and curr_close >= middle:
+                if i + 1 < len(data):
+                    exited_sell = data[i + 1]["opening_price"]
+            elif bb_max_hold_bars > 0 and hold_bars >= bb_max_hold_bars:
+                exited_sell = data[i]["trade_price"]
+
+            if exited_sell is not None:
+                sell_price = exited_sell * (1 - FEE_RATE)
                 pnl = (sell_price - entry_price) / entry_price
                 trades.append({
                     "date": entry_date,
                     "buy_datetime": entry_datetime,
-                    "sell_datetime": data[i]["candle_date_time_kst"],
-                    "buy_price": round(entry_price / (1 + FEE_RATE)),
-                    "sell_price": round(raw_sell),
+                    "sell_datetime": exited_dt,
+                    "buy_price": round(raw_entry),
+                    "sell_price": round(exited_sell),
                     "pnl": round(pnl, 6),
                     "win": pnl > 0,
                 })
                 in_trade = False
-            elif curr_close >= middle:
-                if i + 1 < len(data):
-                    raw_sell = data[i + 1]["opening_price"]
-                    sell_price = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
-                    pnl = (sell_price - entry_price) / entry_price
-                    trades.append({
-                        "date": entry_date,
-                        "buy_datetime": entry_datetime,
-                        "sell_datetime": data[i]["candle_date_time_kst"],
-                        "buy_price": round(entry_price / (1 + FEE_RATE)),  # 표시용: 수수료 전 가격
-                        "sell_price": round(raw_sell),  # 표시용: 수수료 전 가격
-                        "pnl": round(pnl, 6),
-                        "win": pnl > 0,
-                    })
-                    in_trade = False
 
     open_trade = None
     if in_trade and entry_price is not None:
@@ -467,7 +506,12 @@ def _bollinger_bounce_backtest(data, period=20, std_mult=2.0, initial_capital=10
 
     return _build_result("BOLLINGER_BOUNCE", trades, initial_capital, current_signal,
                          open_trade=open_trade,
-                         candles=data, bb_period=period, bb_std=std_mult, total_candles=len(data))
+                         candles=data, bb_period=period, bb_std=std_mult,
+                         bb_use_tp=bb_use_tp, bb_tp=bb_tp, bb_use_sl=bb_use_sl, bb_sl=bb_sl,
+                         bb_use_middle_exit=bb_use_middle_exit,
+                         bb_volume_filter=bb_volume_filter, bb_volume_mult=bb_volume_mult,
+                         bb_max_hold_bars=bb_max_hold_bars,
+                         total_candles=len(data))
 
 
 # ── 공통 결과 빌더 ─────────────────────────────────────────────────────────────
