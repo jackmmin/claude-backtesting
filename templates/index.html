@@ -465,10 +465,12 @@
         </label>
       </div>
       <!-- RSI 과매도 반등 전용 -->
-      <div id="ctrl-rsi" style="display:none;gap:12px;align-items:center;">
+      <div id="ctrl-rsi" style="display:none;gap:12px;align-items:center;flex-wrap:wrap;">
         <label>RSI 기간: <input type="number" id="rsiPeriod" value="14" min="5" max="50" style="width:60px;text-align:center;"></label>
         <label>과매도 임계값: <input type="number" id="rsiThreshold" value="30" min="10" max="45" style="width:60px;text-align:center;"></label>
-        <label>청산 RSI: <input type="number" id="rsiExit" value="50" min="40" max="80" style="width:60px;text-align:center;"></label>
+        <label>청산 RSI: <input type="number" id="rsiExit" value="62" min="40" max="80" style="width:60px;text-align:center;"></label>
+        <label>TP (%): <input type="number" id="rsiTp" value="7" min="2" max="20" style="width:60px;text-align:center;"></label>
+        <label>SL (%): <input type="number" id="rsiSl" value="4" min="1" max="15" style="width:60px;text-align:center;"></label>
       </div>
       <!-- MA 골든크로스 전용 -->
       <div id="ctrl-ma" style="display:none;gap:12px;align-items:center;">
@@ -798,7 +800,7 @@
   };
   const STRATEGY_DESCS = {
     K_VOLATILITY_BREAKOUT: "전략: 시가 + K × 전봉 변동폭 돌파 시 롱 진입 → 다음 봉 시가 청산 · 최대 1000개 캔들 수집 가능",
-    RSI_OVERSOLD_BOUNCE: "전략: RSI가 과매도 구간(기본 30) 진입 시 다음 봉 시가 매수 → RSI가 청산 기준(기본 50) 상향 돌파 시 다음 봉 시가 매도",
+    RSI_OVERSOLD_BOUNCE: "전략: RSI가 과매도(30↓) 후 회복(30↑) 크로스 + 20MA 상향 시 매수 → TP(기본 7%) 익절 or SL(기본 -4%) 손절 or RSI 62↑ 시 매도 · Wilder EMA RSI",
     MA_GOLDEN_CROSS: "전략: 단기 MA가 장기 MA 상향 돌파(골든크로스) 시 다음 봉 시가 매수 → 데드크로스 시 다음 봉 시가 매도",
     BOLLINGER_BOUNCE: "전략: 종가가 볼린저 하단밴드 하향 후 복귀 시 다음 봉 시가 매수 → 종가가 중심선 도달 시 다음 봉 시가 매도",
   };
@@ -863,6 +865,8 @@
       params += `&rsi_period=${document.getElementById("rsiPeriod").value}`;
       params += `&rsi_threshold=${document.getElementById("rsiThreshold").value}`;
       params += `&rsi_exit=${document.getElementById("rsiExit").value}`;
+      params += `&rsi_tp=${parseFloat(document.getElementById("rsiTp").value) / 100}`;
+      params += `&rsi_sl=${-parseFloat(document.getElementById("rsiSl").value) / 100}`;
     } else if (strategy === "MA_GOLDEN_CROSS") {
       params += `&ma_fast=${document.getElementById("maFast").value}`;
       params += `&ma_slow=${document.getElementById("maSlow").value}`;

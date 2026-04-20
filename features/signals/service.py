@@ -67,8 +67,9 @@ def _calc_rsi_signal(data, period=14, threshold=30, is_minute=False):
             "details": {"rsi_value": None, "threshold": threshold, "period": period},
         }
 
-    triggered = rsi_curr < threshold and (rsi_prev is None or rsi_prev >= threshold)
-    desc = f"RSI {rsi_curr:.1f} ({'과매도 반등' if triggered else '과매도' if rsi_curr < threshold else '정상 범위'})"
+    # 진입 신호: RSI가 과매도에서 threshold 위로 회복
+    triggered = rsi_prev is not None and rsi_curr >= threshold and rsi_prev < threshold
+    desc = f"RSI {rsi_curr:.1f} ({'반등 진입' if triggered else '과매도' if rsi_curr < threshold else '정상 범위'})"
 
     period_label = "봉" if is_minute else "일봉"
     return {
@@ -177,11 +178,12 @@ def _find_historical_signals(data, k=0.5, is_minute=False):
             if curr["high_price"] >= target:
                 triggered_strategies.append("K_VOLATILITY_BREAKOUT")
 
-        # RSI
+        # RSI: 과매도 회복 크로스 (threshold 위로 재진입)
         closes = [c["trade_price"] for c in window]
         rsi_curr = _rsi(closes, 14)
         rsi_prev = _rsi(closes[:-1], 14)
-        if rsi_curr is not None and rsi_curr < 30 and (rsi_prev is None or rsi_prev >= 30):
+        if (rsi_curr is not None and rsi_prev is not None
+                and rsi_curr >= 30 and rsi_prev < 30):
             triggered_strategies.append("RSI_OVERSOLD_BOUNCE")
 
         # MA 골든크로스
@@ -224,17 +226,18 @@ def _sma(values, period):
 def _rsi(closes, period=14):
     if len(closes) < period + 1:
         return None
-    gains, losses = [], []
-    for i in range(1, len(closes)):
-        diff = closes[i] - closes[i - 1]
-        gains.append(max(diff, 0))
-        losses.append(abs(min(diff, 0)))
-    avg_gain = sum(gains[-period:]) / period
-    avg_loss = sum(losses[-period:]) / period
+    diffs = [closes[i] - closes[i - 1] for i in range(1, len(closes))]
+    gains = [max(d, 0) for d in diffs]
+    losses = [abs(min(d, 0)) for d in diffs]
+    # Wilder EMA: SMA 시드 후 지수 스무딩
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
     if avg_loss == 0:
         return 100.0 if avg_gain > 0 else 50.0
-    rs = avg_gain / avg_loss
-    return 100 - (100 / (1 + rs))
+    return 100 - (100 / (1 + avg_gain / avg_loss))
 
 
 def _fmt(n):

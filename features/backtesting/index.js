@@ -8,7 +8,7 @@ async function runBacktest({
   market = "KRW-BTC",
   strategy = "K_VOLATILITY_BREAKOUT",
   k = 0.5,
-  rsiPeriod = 14, rsiThreshold = 30, rsiExit = 50,
+  rsiPeriod = 14, rsiThreshold = 30, rsiExit = 62, rsiTp = 0.07, rsiSl = -0.04,
   maFast = 5, maSlow = 20,
   bbPeriod = 20, bbStd = 2.0,
   interval = "days", count = 200, initialCapital = 1000000,
@@ -22,7 +22,7 @@ async function runBacktest({
   if (strategy === "K_VOLATILITY_BREAKOUT") {
     return kVolatilityBacktest(data, k, initialCapital);
   }
-  if (strategy === "RSI_OVERSOLD_BOUNCE") return rsiOversoldBacktest(data, rsiPeriod, rsiThreshold, rsiExit, initialCapital);
+  if (strategy === "RSI_OVERSOLD_BOUNCE") return rsiOversoldBacktest(data, rsiPeriod, rsiThreshold, rsiExit, rsiTp, rsiSl, initialCapital);
   if (strategy === "MA_GOLDEN_CROSS") return maGoldenCrossBacktest(data, maFast, maSlow, initialCapital);
   if (strategy === "BOLLINGER_BOUNCE") return bollingerBounceBacktest(data, bbPeriod, bbStd, initialCapital);
   return { error: `알 수 없는 전략: ${strategy}` };
@@ -60,41 +60,55 @@ function kVolatilityBacktest(data, k, initialCapital) {
 }
 
 // ── RSI 과매도 반등 ────────────────────────────────────────────────────────────
+// 개선: RSI 회복 후 진입 · Wilder EMA · 손절 -4% · TP 7% · 20MA 추세 필터
 
-function rsiOversoldBacktest(data, period, threshold, exitThreshold, initialCapital) {
+function rsiOversoldBacktest(data, period, threshold, exitThreshold, takeProfit, stopLoss, initialCapital) {
   const trades = [];
   let inTrade = false, entryPrice = null, entryDate = null, entryDatetime = null;
+  const MA_PERIOD = 20;
 
-  for (let i = period + 1; i < data.length; i++) {
+  for (let i = Math.max(period + 1, MA_PERIOD); i < data.length; i++) {
     const closes = data.slice(0, i + 1).map(c => c.trade_price);
     const rsiCurr = calcRsi(closes, period);
     const rsiPrev = calcRsi(closes.slice(0, -1), period);
-    if (rsiCurr === null) continue;
+    if (rsiCurr === null || rsiPrev === null) continue;
 
     if (!inTrade) {
-      if (rsiCurr < threshold && (rsiPrev === null || rsiPrev >= threshold)) {
-        if (i + 1 < data.length) {
-          entryPrice = data[i + 1].opening_price * (1 + FEE_RATE);  // 매수 수수료 반영
-          entryDate = data[i].candle_date_time_kst.slice(0, 10);
-          entryDatetime = data[i + 1].candle_date_time_kst;
-          inTrade = true;
+      // 진입: RSI가 threshold 아래에서 위로 회복 크로스 + 20MA 추세 필터
+      if (rsiCurr >= threshold && rsiPrev < threshold) {
+        const ma20 = calcSma(closes, MA_PERIOD);
+        if (ma20 !== null && closes[closes.length - 1] > ma20) {
+          if (i + 1 < data.length) {
+            entryPrice = data[i + 1].opening_price * (1 + FEE_RATE);
+            entryDate = data[i].candle_date_time_kst.slice(0, 10);
+            entryDatetime = data[i + 1].candle_date_time_kst;
+            inTrade = true;
+          }
         }
       }
     } else {
-      const tpPrice = (entryPrice / (1 + FEE_RATE)) * (1 + TAKE_PROFIT);
+      const rawEntry = entryPrice / (1 + FEE_RATE);
+      const tpPrice = rawEntry * (1 + takeProfit);
+      const slPrice = rawEntry * (1 + stopLoss);
+
       if (data[i].high_price >= tpPrice) {
-        // TP 도달: 해당 봉 고가 기준 익절 청산
         const rawSell = tpPrice;
         const sell = rawSell * (1 - FEE_RATE);
         const pnl = (sell - entryPrice) / entryPrice;
-        trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i].candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+        trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i].candle_date_time_kst, buy_price: Math.round(rawEntry), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+        inTrade = false;
+      } else if (data[i].low_price <= slPrice) {
+        const rawSell = slPrice;
+        const sell = rawSell * (1 - FEE_RATE);
+        const pnl = (sell - entryPrice) / entryPrice;
+        trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i].candle_date_time_kst, buy_price: Math.round(rawEntry), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
         inTrade = false;
       } else if (rsiCurr >= exitThreshold) {
         if (i + 1 < data.length) {
           const rawSell = data[i + 1].opening_price;
-          const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영
+          const sell = rawSell * (1 - FEE_RATE);
           const pnl = (sell - entryPrice) / entryPrice;
-          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+          trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: data[i + 1].candle_date_time_kst, buy_price: Math.round(rawEntry), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
           inTrade = false;
         }
       }
@@ -108,10 +122,11 @@ function rsiOversoldBacktest(data, period, threshold, exitThreshold, initialCapi
     date: data[data.length - 1].candle_date_time_kst.slice(0, 10),
     rsi_value: rsiCurr !== null ? Math.round(rsiCurr * 100) / 100 : null,
     threshold, exit_threshold: exitThreshold,
-    triggered: rsiCurr !== null && rsiCurr < threshold && (rsiPrev === null || rsiPrev >= threshold),
+    triggered: rsiCurr !== null && rsiPrev !== null && rsiCurr >= threshold && rsiPrev < threshold,
     in_trade: inTrade,
   };
-  return buildResult("RSI_OVERSOLD_BOUNCE", trades, initialCapital, currentSignal, data, { rsi_period: period, rsi_threshold: threshold, rsi_exit: exitThreshold, total_candles: data.length });
+  return buildResult("RSI_OVERSOLD_BOUNCE", trades, initialCapital, currentSignal, data,
+    { rsi_period: period, rsi_threshold: threshold, rsi_exit: exitThreshold, rsi_tp: takeProfit, rsi_sl: stopLoss, total_candles: data.length });
 }
 
 // ── MA 골든크로스 ──────────────────────────────────────────────────────────────
@@ -272,14 +287,17 @@ function calcSma(values, period) {
 
 function calcRsi(closes, period = 14) {
   if (closes.length < period + 1) return null;
-  const gains = [], losses = [];
-  for (let i = 1; i < closes.length; i++) {
-    const diff = closes[i] - closes[i - 1];
-    gains.push(Math.max(diff, 0));
-    losses.push(Math.abs(Math.min(diff, 0)));
+  const diffs = [];
+  for (let i = 1; i < closes.length; i++) diffs.push(closes[i] - closes[i - 1]);
+  const gains = diffs.map(d => Math.max(d, 0));
+  const losses = diffs.map(d => Math.abs(Math.min(d, 0)));
+  // Wilder EMA: SMA 시드 후 지수 스무딩
+  let avgGain = gains.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  let avgLoss = losses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < gains.length; i++) {
+    avgGain = (avgGain * (period - 1) + gains[i]) / period;
+    avgLoss = (avgLoss * (period - 1) + losses[i]) / period;
   }
-  const avgGain = gains.slice(-period).reduce((a, b) => a + b, 0) / period;
-  const avgLoss = losses.slice(-period).reduce((a, b) => a + b, 0) / period;
   if (avgLoss === 0) return avgGain > 0 ? 100 : 50;
   return 100 - 100 / (1 + avgGain / avgLoss);
 }
