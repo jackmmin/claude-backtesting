@@ -800,7 +800,7 @@
   };
   const STRATEGY_DESCS = {
     K_VOLATILITY_BREAKOUT: "전략: 시가 + K × 전봉 변동폭 돌파 시 롱 진입 → 다음 봉 시가 청산 · 최대 1000개 캔들 수집 가능",
-    RSI_OVERSOLD_BOUNCE: "전략: RSI가 과매도(30↓) 후 회복(30↑) 크로스 + 20MA 상향 시 매수 → TP(기본 7%) 익절 or SL(기본 -4%) 손절 or RSI 62↑ 시 매도 · Wilder EMA RSI",
+    RSI_OVERSOLD_BOUNCE: "전략: RSI가 과매도(30↓) 후 회복(30↑) 크로스 시 매수 → TP(기본 7%) 익절 or SL(기본 -4%) 손절 or RSI 62↑ 시 매도 · Wilder EMA RSI",
     MA_GOLDEN_CROSS: "전략: 단기 MA가 장기 MA 상향 돌파(골든크로스) 시 다음 봉 시가 매수 → 데드크로스 시 다음 봉 시가 매도",
     BOLLINGER_BOUNCE: "전략: 종가가 볼린저 하단밴드 하향 후 복귀 시 다음 봉 시가 매수 → 종가가 중심선 도달 시 다음 봉 시가 매도",
   };

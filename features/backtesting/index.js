@@ -65,27 +65,21 @@ function kVolatilityBacktest(data, k, initialCapital) {
 function rsiOversoldBacktest(data, period, threshold, exitThreshold, takeProfit, stopLoss, initialCapital) {
   const trades = [];
   let inTrade = false, entryPrice = null, entryDate = null, entryDatetime = null;
-  const MA_PERIOD = 20;
-
-  for (let i = Math.max(period + 1, MA_PERIOD); i < data.length; i++) {
+  for (let i = period + 1; i < data.length; i++) {
     const closes = data.slice(0, i + 1).map(c => c.trade_price);
     const rsiCurr = calcRsi(closes, period);
     const rsiPrev = calcRsi(closes.slice(0, -1), period);
     if (rsiCurr === null || rsiPrev === null) continue;
 
     if (!inTrade) {
-      // 진입: RSI가 threshold 아래에서 위로 회복 크로스 + 20MA 추세 필터
+      // 진입: RSI가 threshold 아래에서 위로 회복 크로스
       if (rsiCurr >= threshold && rsiPrev < threshold) {
-        const ma20 = calcSma(closes, MA_PERIOD);
-        if (ma20 !== null && closes[closes.length - 1] > ma20) {
-          if (i + 1 < data.length) {
-            entryPrice = data[i + 1].opening_price * (1 + FEE_RATE);
-            entryDate = data[i].candle_date_time_kst.slice(0, 10);
-            entryDatetime = data[i + 1].candle_date_time_kst;
-            inTrade = true;
-          }
+        if (i + 1 < data.length) {
+          entryPrice = data[i + 1].opening_price * (1 + FEE_RATE);
+          entryDate = data[i].candle_date_time_kst.slice(0, 10);
+          entryDatetime = data[i + 1].candle_date_time_kst;
+          inTrade = true;
         }
-      }
     } else {
       const rawEntry = entryPrice / (1 + FEE_RATE);
       const tpPrice = rawEntry * (1 + takeProfit);

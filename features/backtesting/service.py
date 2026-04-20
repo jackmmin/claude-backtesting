@@ -101,9 +101,7 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=62,
     entry_price = None
     entry_date = None
     entry_datetime = None
-    ma_period = 20
-
-    for i in range(max(period + 1, ma_period), len(data)):
+    for i in range(period + 1, len(data)):
         closes_curr = [c["trade_price"] for c in data[:i + 1]]
         closes_prev = closes_curr[:-1]
 
@@ -114,15 +112,13 @@ def _rsi_oversold_backtest(data, period=14, threshold=30, exit_threshold=62,
             continue
 
         if not in_trade:
-            # 진입: RSI가 threshold 아래에서 위로 회복 크로스 + 20MA 추세 필터
+            # 진입: RSI가 threshold 아래에서 위로 회복 크로스
             if rsi_curr >= threshold and rsi_prev < threshold:
-                ma20 = _sma(closes_curr, ma_period)
-                if ma20 is not None and closes_curr[-1] > ma20:
-                    if i + 1 < len(data):
-                        entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)
-                        entry_date = data[i]["candle_date_time_kst"][:10]
-                        entry_datetime = data[i + 1]["candle_date_time_kst"]
-                        in_trade = True
+                if i + 1 < len(data):
+                    entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)
+                    entry_date = data[i]["candle_date_time_kst"][:10]
+                    entry_datetime = data[i + 1]["candle_date_time_kst"]
+                    in_trade = True
         else:
             raw_entry = entry_price / (1 + FEE_RATE)
             tp_price = raw_entry * (1 + take_profit)
