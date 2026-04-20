@@ -10,6 +10,12 @@ def backtesting():
     market = request.args.get("market", "KRW-BTC")
     strategy = request.args.get("strategy", "K_VOLATILITY_BREAKOUT")
     k = float(request.args.get("k", 0.5))
+    k_tp = float(request.args.get("k_tp", 0.05))
+    k_sl = float(request.args.get("k_sl", -0.03))
+    k_ma_filter = request.args.get("k_ma_filter", "false").lower() == "true"
+    k_ma_period = int(request.args.get("k_ma_period", 20))
+    k_volume_filter = request.args.get("k_volume_filter", "false").lower() == "true"
+    k_volume_mult = float(request.args.get("k_volume_mult", 1.5))
     rsi_period = int(request.args.get("rsi_period", 14))
     rsi_threshold = float(request.args.get("rsi_threshold", 30))
     rsi_exit = float(request.args.get("rsi_exit", 62))
@@ -25,7 +31,10 @@ def backtesting():
 
     return jsonify(run_backtest(
         exchange=exchange, market=market, strategy=strategy,
-        k=k, rsi_period=rsi_period, rsi_threshold=rsi_threshold, rsi_exit=rsi_exit,
+        k=k, k_tp=k_tp, k_sl=k_sl,
+        k_ma_filter=k_ma_filter, k_ma_period=k_ma_period,
+        k_volume_filter=k_volume_filter, k_volume_mult=k_volume_mult,
+        rsi_period=rsi_period, rsi_threshold=rsi_threshold, rsi_exit=rsi_exit,
         rsi_tp=rsi_tp, rsi_sl=rsi_sl,
         ma_fast=ma_fast, ma_slow=ma_slow, bb_period=bb_period, bb_std=bb_std,
         interval=interval, count=count, initial_capital=initial_capital,

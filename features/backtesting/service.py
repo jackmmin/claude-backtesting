@@ -10,6 +10,9 @@ def run_backtest(
     exchange="upbit", market="KRW-BTC",
     strategy="K_VOLATILITY_BREAKOUT",
     k=0.5,
+    k_tp=0.05, k_sl=-0.03,
+    k_ma_filter=False, k_ma_period=20,
+    k_volume_filter=False, k_volume_mult=1.5,
     rsi_period=14, rsi_threshold=30, rsi_exit=62, rsi_tp=0.07, rsi_sl=-0.04,
     ma_fast=5, ma_slow=20,
     bb_period=20, bb_std=2.0,
@@ -24,7 +27,10 @@ def run_backtest(
     data = list(reversed(candles))
 
     if strategy == "K_VOLATILITY_BREAKOUT":
-        return _k_volatility_backtest(data, k=k, initial_capital=initial_capital)
+        return _k_volatility_backtest(data, k=k, initial_capital=initial_capital,
+                                      k_tp=k_tp, k_sl=k_sl,
+                                      k_ma_filter=k_ma_filter, k_ma_period=k_ma_period,
+                                      k_volume_filter=k_volume_filter, k_volume_mult=k_volume_mult)
     if strategy == "RSI_OVERSOLD_BOUNCE":
         return _rsi_oversold_backtest(data, period=rsi_period, threshold=rsi_threshold,
                                       exit_threshold=rsi_exit, take_profit=rsi_tp,
@@ -38,34 +44,57 @@ def run_backtest(
 
 # ── K변동성 돌파 ──────────────────────────────────────────────────────────────
 
-def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
+def _k_volatility_backtest(data, k=0.5, initial_capital=1000000,
+                            k_tp=0.05, k_sl=-0.03,
+                            k_ma_filter=False, k_ma_period=20,
+                            k_volume_filter=False, k_volume_mult=1.5):
     trades = []
     for i in range(1, len(data)):
         prev = data[i - 1]
         curr = data[i]
+
+        # MA 추세 필터: 시가가 MA 아래면 진입 제외
+        if k_ma_filter:
+            if i < k_ma_period:
+                continue
+            ma = _sma([c["trade_price"] for c in data[:i]], k_ma_period)
+            if ma is not None and curr["opening_price"] < ma:
+                continue
+
+        # 볼륨 필터: 당일 거래량이 최근 20일 평균 × 배수 미만이면 진입 제외
+        if k_volume_filter:
+            vol_window = data[max(0, i - 20):i]
+            vols = [c.get("candle_acc_trade_volume", 0) for c in vol_window]
+            avg_vol = sum(vols) / len(vol_window) if vol_window else 0
+            curr_vol = curr.get("candle_acc_trade_volume", 0)
+            if avg_vol > 0 and curr_vol < avg_vol * k_volume_mult:
+                continue
 
         prev_range = prev["high_price"] - prev["low_price"]
         if prev_range <= 0:
             continue
 
         target = curr["opening_price"] + k * prev_range
-        # 당일 고가가 목표가 이상일 때 진입 (고가 기준으로 look-ahead bias 방지)
         if curr["high_price"] >= target:
-            buy_cost = target * (1 + FEE_RATE)   # 매수 수수료 반영
-            tp_price = target * (1 + TAKE_PROFIT)
-            # 당일 고가가 TP 가격 이상이면 TP 청산, 아니면 당일 종가 청산
+            buy_cost = target * (1 + FEE_RATE)
+            tp_price = target * (1 + k_tp)
+            sl_price = target * (1 + k_sl)
+
             if curr["high_price"] >= tp_price:
                 raw_sell = tp_price
+            elif curr["low_price"] <= sl_price:
+                raw_sell = sl_price
             else:
                 raw_sell = curr["trade_price"]
-            sell = raw_sell * (1 - FEE_RATE)  # 매도 수수료 반영
+
+            sell = raw_sell * (1 - FEE_RATE)
             pnl = (sell - buy_cost) / buy_cost
             trades.append({
                 "date": curr["candle_date_time_kst"][:16],
                 "buy_datetime": curr["candle_date_time_kst"],
                 "sell_datetime": curr["candle_date_time_kst"][:10] + " 23:50:00",
-                "buy_price": round(target),   # 표시용: 수수료 전 목표가
-                "sell_price": round(raw_sell),  # 표시용: 수수료 전 종가
+                "buy_price": round(target),
+                "sell_price": round(raw_sell),
                 "pnl": round(pnl, 6),
                 "win": pnl > 0,
             })
@@ -88,7 +117,10 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000):
         }
 
     return _build_result("K_VOLATILITY_BREAKOUT", trades, initial_capital, current_signal,
-                         candles=data, k=k, total_candles=len(data))
+                         candles=data, k=k, k_tp=k_tp, k_sl=k_sl,
+                         k_ma_filter=k_ma_filter, k_ma_period=k_ma_period,
+                         k_volume_filter=k_volume_filter, k_volume_mult=k_volume_mult,
+                         total_candles=len(data))
 
 
 # ── RSI 과매도 반등 ────────────────────────────────────────────────────────────

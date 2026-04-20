@@ -457,11 +457,21 @@
         <input type="text" class="wide" id="initialCapital" value="1,000,000" inputmode="numeric">
       </label>
       <!-- K변동성 돌파 전용 -->
-      <div id="ctrl-k" style="display:flex;gap:12px;align-items:center;">
+      <div id="ctrl-k" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
         <label>
           K 값:
           <input type="range" id="kSlider" min="0.1" max="1.0" step="0.05" value="0.5">
           <span id="kValueDisplay">0.5</span>
+        </label>
+        <label>TP (%): <input type="number" id="kTp" value="5" min="1" max="15" style="width:60px;text-align:center;"></label>
+        <label>SL (%): <input type="number" id="kSl" value="3" min="1" max="10" style="width:60px;text-align:center;"></label>
+        <label style="display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" id="kMaFilter"> MA 추세 필터
+          <input type="number" id="kMaPeriod" value="20" min="5" max="50" style="width:55px;text-align:center;margin-left:4px;" title="MA 기간">
+        </label>
+        <label style="display:flex;align-items:center;gap:4px;">
+          <input type="checkbox" id="kVolumeFilter"> 볼륨 필터
+          <input type="number" id="kVolumeMult" value="1.5" min="1.0" max="5.0" step="0.1" style="width:55px;text-align:center;margin-left:4px;" title="평균 볼륨 배수">x
         </label>
       </div>
       <!-- RSI 과매도 반등 전용 -->
@@ -799,7 +809,7 @@
     BOLLINGER_BOUNCE: "볼린저밴드 반등",
   };
   const STRATEGY_DESCS = {
-    K_VOLATILITY_BREAKOUT: "전략: 시가 + K × 전봉 변동폭 돌파 시 롱 진입 → 다음 봉 시가 청산 · 최대 1000개 캔들 수집 가능",
+    K_VOLATILITY_BREAKOUT: "전략: 시가 + K × 전봉 변동폭 돌파 시 롱 진입 → TP/SL 청산 or 당일 종가 청산 · MA 추세 필터·볼륨 필터 선택 적용 가능",
     RSI_OVERSOLD_BOUNCE: "전략: RSI가 과매도(30↓) 후 회복(30↑) 크로스 시 매수 → TP(기본 7%) 익절 or SL(기본 -4%) 손절 or RSI 62↑ 시 매도 · Wilder EMA RSI",
     MA_GOLDEN_CROSS: "전략: 단기 MA가 장기 MA 상향 돌파(골든크로스) 시 다음 봉 시가 매수 → 데드크로스 시 다음 봉 시가 매도",
     BOLLINGER_BOUNCE: "전략: 종가가 볼린저 하단밴드 하향 후 복귀 시 다음 봉 시가 매수 → 종가가 중심선 도달 시 다음 봉 시가 매도",
@@ -861,6 +871,12 @@
     let params = `market=${market}&strategy=${strategy}&interval=${interval}&count=${count}&initial_capital=${initialCapital}`;
     if (strategy === "K_VOLATILITY_BREAKOUT") {
       params += `&k=${parseFloat(kSlider.value)}`;
+      params += `&k_tp=${parseFloat(document.getElementById("kTp").value) / 100}`;
+      params += `&k_sl=${-parseFloat(document.getElementById("kSl").value) / 100}`;
+      const kMaFilter = document.getElementById("kMaFilter").checked;
+      params += `&k_ma_filter=${kMaFilter}&k_ma_period=${document.getElementById("kMaPeriod").value}`;
+      const kVolumeFilter = document.getElementById("kVolumeFilter").checked;
+      params += `&k_volume_filter=${kVolumeFilter}&k_volume_mult=${document.getElementById("kVolumeMult").value}`;
     } else if (strategy === "RSI_OVERSOLD_BOUNCE") {
       params += `&rsi_period=${document.getElementById("rsiPeriod").value}`;
       params += `&rsi_threshold=${document.getElementById("rsiThreshold").value}`;
