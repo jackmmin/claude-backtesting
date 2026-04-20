@@ -119,6 +119,31 @@
       position: relative;
     }
 
+    .chart-resize-handle {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 10px;
+      cursor: ns-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0 0 12px 12px;
+      transition: background 0.15s;
+      z-index: 5;
+    }
+    .chart-resize-handle:hover { background: rgba(88,166,255,0.12); }
+    .chart-resize-handle::after {
+      content: "";
+      width: 36px;
+      height: 3px;
+      background: #30363d;
+      border-radius: 2px;
+      transition: background 0.15s;
+    }
+    .chart-resize-handle:hover::after { background: #58a6ff; }
+
     .chart-wrap #chart {
       height: 480px;
     }
@@ -388,8 +413,9 @@
       <div class="ticker-card"><div class="label">52주 최저</div><div class="value neutral" id="t-low52">-</div></div>
     </div>
 
-    <div class="chart-wrap" style="padding:0;overflow:hidden;">
+    <div class="chart-wrap" id="chartWrap" style="padding:0;overflow:hidden;">
       <div id="tradingview-chart" style="height:480px;"></div>
+      <div class="chart-resize-handle" data-target="tradingview-chart"></div>
     </div>
 
     <!-- 전략 신호 카드 -->
@@ -506,8 +532,9 @@
       </div>
 
       <!-- 백테스팅 캔들 차트 (TradingView 위젯) -->
-      <div class="chart-wrap" style="margin-bottom:20px;padding:0;overflow:hidden;">
+      <div class="chart-wrap" id="btChartWrap" style="margin-bottom:20px;padding:0;overflow:hidden;">
         <div id="btCandleChart" style="height:400px;"></div>
+        <div class="chart-resize-handle" data-target="btCandleChart"></div>
       </div>
 
       <!-- 에쿼티 커브 -->
@@ -545,6 +572,36 @@
   let equityChart = null;
   let tvWidget = null;     // 차트 탭 TradingView 위젯 iframe
   let tvBtWidget = null;   // 백테스팅 탭 TradingView 위젯 iframe
+
+  // ── 차트 높이 드래그 조절 ──────────────────────────────────
+  (function initChartResize() {
+    const MIN_H = 200, MAX_H = 900;
+    document.querySelectorAll(".chart-resize-handle").forEach(handle => {
+      let startY = 0, startH = 0, target = null;
+
+      handle.addEventListener("mousedown", e => {
+        target = document.getElementById(handle.dataset.target);
+        if (!target) return;
+        startY = e.clientY;
+        startH = target.offsetHeight;
+        document.body.style.userSelect = "none";
+        document.body.style.cursor = "ns-resize";
+        e.preventDefault();
+      });
+
+      document.addEventListener("mousemove", e => {
+        if (!target) return;
+        const newH = Math.min(MAX_H, Math.max(MIN_H, startH + (e.clientY - startY)));
+        target.style.height = newH + "px";
+      });
+
+      document.addEventListener("mouseup", () => {
+        target = null;
+        document.body.style.userSelect = "";
+        document.body.style.cursor = "";
+      });
+    });
+  })();
 
   // ── 마켓 목록 로드 ──────────────────────────────────────
   // Upbit KRW 마켓 거래량 TOP10 목록을 받아 셀렉트 박스에 채운 뒤 초기 차트 로드
