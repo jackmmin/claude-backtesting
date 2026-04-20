@@ -390,7 +390,7 @@ def _build_result(strategy, trades, initial_capital, current_signal, candles=Non
     avg_pnl = sum(t["pnl"] for t in trades) / len(trades)
 
     portfolio = initial_capital
-    equity_curve = []
+    equity_curve = [{"date": "시작", "value": initial_capital}]
     for t in trades:
         prev = portfolio
         portfolio = round(portfolio * (1 + t["pnl"]))
