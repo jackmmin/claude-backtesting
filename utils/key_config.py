@@ -4,8 +4,12 @@ import os
 _KEY_FILE = os.path.join(os.path.dirname(__file__), "..", "upbit_keys")
 
 
-def _path():
+def key_file_path() -> str:
     return os.path.abspath(_KEY_FILE)
+
+
+def _path():
+    return key_file_path()
 
 
 def load_keys() -> dict:

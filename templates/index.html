@@ -773,7 +773,7 @@
     <div class="lt-section">
       <h3>API 키 설정</h3>
       <p style="font-size:0.8rem;color:#8b949e;margin:0 0 12px;">
-        키는 서버의 <code style="background:#21262d;padding:1px 5px;border-radius:3px;">upbit_keys</code> 파일에서 관리됩니다.
+        키 파일: <code id="ltKeyFilePath" style="background:#21262d;padding:1px 5px;border-radius:3px;">-</code>
       </p>
       <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px;font-size:0.82rem;">
         <span>자산조회 <span id="ltKeyStatusBalance" style="margin-left:4px;"></span></span>
@@ -1532,11 +1532,13 @@
 
   document.getElementById("marketSelect").addEventListener("change", syncLtMarkets);
 
-  // 탭 진입 시 upbit_keys 파일 설정 상태 표시
+  // 탭 진입 시 키 파일 경로 및 섹션별 설정 상태 표시
   async function refreshKeyStatus() {
     try {
       const res = await fetch("/api/trading/keys");
       const d = await res.json();
+      const pathEl = document.getElementById("ltKeyFilePath");
+      if (pathEl) pathEl.textContent = d.key_file || "-";
       [
         { id: "ltKeyStatusBalance", has: d.has_balance },
         { id: "ltKeyStatusOrderQuery", has: d.has_order_query },
@@ -1579,6 +1581,11 @@
   async function startTrading() {
     const market = document.getElementById("ltMarket").value;
     if (!market) { alert("마켓을 선택해주세요"); return; }
+
+    const strategy = document.getElementById("ltStrategy").options[document.getElementById("ltStrategy").selectedIndex].text;
+    const timeframe = document.getElementById("ltTimeframe").options[document.getElementById("ltTimeframe").selectedIndex].text;
+    const pct = document.getElementById("ltPositionPct").value;
+    if (!confirm(`자동매매를 시작하시겠습니까?\n\n마켓: ${market}\n전략: ${strategy}\n타임프레임: ${timeframe}\n포지션 크기: ${pct}%\n\n실제 자금으로 거래됩니다.`)) return;
 
     const body = {
       market,

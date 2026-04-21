@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from utils.key_config import load_keys, save_keys, has_keys
+from utils.key_config import load_keys, save_keys, has_keys, key_file_path
 from exchanges.upbit import private_client as upbit
 from .models import TradingConfig
 from . import state_manager as sm
@@ -61,6 +61,7 @@ def get_keys_status():
         "has_order_query": bool(keys["order_query_access_key"] and keys["order_query_secret_key"]),
         "has_order": bool(keys["order_access_key"] and keys["order_secret_key"]),
         "has_all": has_keys(),
+        "key_file": key_file_path(),
     })
 
 
