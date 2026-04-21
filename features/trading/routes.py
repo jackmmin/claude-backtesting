@@ -52,11 +52,24 @@ def _test_all_keys(keys: dict) -> tuple[float | None, str | None]:
     return float(krw["balance"]) if krw else 0, None
 
 
+@trading_bp.route("/trading/keys", methods=["GET"])
+def get_keys_status():
+    """upbit_keys 파일의 섹션별 설정 여부 반환 (실제 키 값은 노출하지 않음)"""
+    keys = load_keys()
+    return jsonify({
+        "has_balance": bool(keys["balance_access_key"] and keys["balance_secret_key"]),
+        "has_order_query": bool(keys["order_query_access_key"] and keys["order_query_secret_key"]),
+        "has_order": bool(keys["order_access_key"] and keys["order_secret_key"]),
+        "has_all": has_keys(),
+    })
+
+
 @trading_bp.route("/trading/config", methods=["POST"])
 def save_config():
-    """API 키 3종 저장 (upbit_keys 파일) 및 매매 설정 저장"""
+    """API 키 3종 저장 (upbit_keys 파일) 및 매매 설정 저장.
+    키 필드가 모두 비어있으면 upbit_keys 파일의 기존 값으로 연결 테스트."""
     data = request.json or {}
-    keys = {
+    input_keys = {
         "balance_access_key": data.get("balance_access_key", "").strip(),
         "balance_secret_key": data.get("balance_secret_key", "").strip(),
         "order_query_access_key": data.get("order_query_access_key", "").strip(),
@@ -65,18 +78,27 @@ def save_config():
         "order_secret_key": data.get("order_secret_key", "").strip(),
     }
 
-    if not all(keys.values()):
+    all_filled = all(input_keys.values())
+    all_empty = not any(input_keys.values())
+
+    if all_empty:
+        # 필드 비어있음 → upbit_keys 파일 값으로 연결 테스트
+        keys = load_keys()
+        if not has_keys():
+            return jsonify({"error": "upbit_keys 파일에 API 키가 설정되지 않았습니다"}), 400
+    elif all_filled:
+        keys = input_keys
+        save_keys(
+            keys["balance_access_key"], keys["balance_secret_key"],
+            keys["order_query_access_key"], keys["order_query_secret_key"],
+            keys["order_access_key"], keys["order_secret_key"],
+        )
+    else:
         return jsonify({"error": "API 키 3종(자산조회 / 주문조회 / 주문하기)을 모두 입력해주세요"}), 400
 
     balance, err = _test_all_keys(keys)
     if err:
         return jsonify({"error": err}), 401
-
-    save_keys(
-        keys["balance_access_key"], keys["balance_secret_key"],
-        keys["order_query_access_key"], keys["order_query_secret_key"],
-        keys["order_access_key"], keys["order_secret_key"],
-    )
 
     settings = {
         "market": data.get("market", "KRW-BTC"),

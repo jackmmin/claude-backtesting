@@ -772,39 +772,15 @@
     <!-- API 키 설정 -->
     <div class="lt-section">
       <h3>API 키 설정</h3>
-      <p style="font-size:0.8rem;color:#8b949e;margin:0 0 12px;">키는 서버의 <code style="background:#21262d;padding:1px 5px;border-radius:3px;">upbit_keys</code> 파일에 저장되며 GitHub에 업로드되지 않습니다.<br>자산조회 / 주문조회 / 주문하기 권한을 각각 다른 API 키로 설정할 수 있습니다.</p>
-
-      <div style="font-size:0.78rem;font-weight:700;color:#58a6ff;margin-bottom:6px;">자산조회 API 키</div>
-      <div class="lt-form-row">
-        <span class="lt-label">Access Key</span>
-        <input class="lt-input" type="text" id="ltBalanceAccessKey" placeholder="자산조회 Access Key">
+      <p style="font-size:0.8rem;color:#8b949e;margin:0 0 12px;">
+        키는 서버의 <code style="background:#21262d;padding:1px 5px;border-radius:3px;">upbit_keys</code> 파일에서 관리됩니다.
+      </p>
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px;font-size:0.82rem;">
+        <span>자산조회 <span id="ltKeyStatusBalance" style="margin-left:4px;"></span></span>
+        <span>주문조회 <span id="ltKeyStatusOrderQuery" style="margin-left:4px;"></span></span>
+        <span>주문하기 <span id="ltKeyStatusOrder" style="margin-left:4px;"></span></span>
       </div>
       <div class="lt-form-row">
-        <span class="lt-label">Secret Key</span>
-        <input class="lt-input" type="password" id="ltBalanceSecretKey" placeholder="자산조회 Secret Key">
-      </div>
-
-      <div style="font-size:0.78rem;font-weight:700;color:#58a6ff;margin:12px 0 6px;">주문조회 API 키</div>
-      <div class="lt-form-row">
-        <span class="lt-label">Access Key</span>
-        <input class="lt-input" type="text" id="ltOrderQueryAccessKey" placeholder="주문조회 Access Key">
-      </div>
-      <div class="lt-form-row">
-        <span class="lt-label">Secret Key</span>
-        <input class="lt-input" type="password" id="ltOrderQuerySecretKey" placeholder="주문조회 Secret Key">
-      </div>
-
-      <div style="font-size:0.78rem;font-weight:700;color:#58a6ff;margin:12px 0 6px;">주문하기 API 키</div>
-      <div class="lt-form-row">
-        <span class="lt-label">Access Key</span>
-        <input class="lt-input" type="text" id="ltOrderAccessKey" placeholder="주문하기 Access Key">
-      </div>
-      <div class="lt-form-row">
-        <span class="lt-label">Secret Key</span>
-        <input class="lt-input" type="password" id="ltOrderSecretKey" placeholder="주문하기 Secret Key">
-      </div>
-
-      <div class="lt-form-row" style="margin-top:12px;">
         <button class="lt-btn lt-btn-test" onclick="testConnection()">연결 테스트</button>
         <span id="ltConnStatus" style="font-size:0.82rem;color:#8b949e;"></span>
       </div>
@@ -1556,32 +1532,32 @@
 
   document.getElementById("marketSelect").addEventListener("change", syncLtMarkets);
 
-  function _collectApiKeys() {
-    return {
-      balance_access_key: document.getElementById("ltBalanceAccessKey").value.trim(),
-      balance_secret_key: document.getElementById("ltBalanceSecretKey").value.trim(),
-      order_query_access_key: document.getElementById("ltOrderQueryAccessKey").value.trim(),
-      order_query_secret_key: document.getElementById("ltOrderQuerySecretKey").value.trim(),
-      order_access_key: document.getElementById("ltOrderAccessKey").value.trim(),
-      order_secret_key: document.getElementById("ltOrderSecretKey").value.trim(),
-    };
-  }
-
-  function _allKeysPresent(keys) {
-    return Object.values(keys).every(v => v.length > 0);
+  // 탭 진입 시 upbit_keys 파일 설정 상태 표시
+  async function refreshKeyStatus() {
+    try {
+      const res = await fetch("/api/trading/keys");
+      const d = await res.json();
+      [
+        { id: "ltKeyStatusBalance", has: d.has_balance },
+        { id: "ltKeyStatusOrderQuery", has: d.has_order_query },
+        { id: "ltKeyStatusOrder", has: d.has_order },
+      ].forEach(({ id, has }) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = has ? "✓" : "미설정";
+        el.style.color = has ? "#3fb950" : "#f85149";
+      });
+    } catch (e) {}
   }
 
   async function testConnection() {
-    const keys = _collectApiKeys();
     const statusEl = document.getElementById("ltConnStatus");
-    if (!_allKeysPresent(keys)) { statusEl.textContent = "API 키 3종을 모두 입력해주세요"; statusEl.style.color = "#f85149"; return; }
     statusEl.textContent = "연결 중..."; statusEl.style.color = "#8b949e";
     try {
       const res = await fetch("/api/trading/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...keys,
           market: document.getElementById("ltMarket").value,
           strategy: document.getElementById("ltStrategy").value,
           timeframe: document.getElementById("ltTimeframe").value,
@@ -1601,13 +1577,10 @@
   }
 
   async function startTrading() {
-    const keys = _collectApiKeys();
     const market = document.getElementById("ltMarket").value;
     if (!market) { alert("마켓을 선택해주세요"); return; }
-    if (!_allKeysPresent(keys)) { alert("API 키 3종(자산조회 / 주문조회 / 주문하기)을 모두 설정해주세요"); return; }
 
     const body = {
-      ...keys,
       market,
       strategy: document.getElementById("ltStrategy").value,
       timeframe: document.getElementById("ltTimeframe").value,
@@ -1790,6 +1763,7 @@
     if (e.target.dataset && e.target.dataset.tab === "live-trading") {
       syncLtMarkets();
       refreshStatus();
+      refreshKeyStatus();
     }
   });
 </script>
