@@ -394,6 +394,104 @@
       display: none;
     }
     #btResult { display: none; }
+
+    /* ── 실시간 매매 탭 ── */
+    .lt-section {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
+    }
+    .lt-section h3 {
+      font-size: 0.88rem;
+      color: #8b949e;
+      font-weight: 600;
+      margin-bottom: 14px;
+      letter-spacing: 0.3px;
+    }
+    .lt-form-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .lt-form-row:last-child { margin-bottom: 0; }
+    .lt-label {
+      font-size: 0.85rem;
+      color: #8b949e;
+      min-width: 100px;
+    }
+    .lt-input {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      flex: 1;
+      min-width: 180px;
+      max-width: 320px;
+    }
+    .lt-input:focus { outline: none; border-color: #58a6ff; }
+    .lt-btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.2s;
+    }
+    .lt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .lt-btn-test { background: #30363d; color: #e6edf3; }
+    .lt-btn-test:hover:not(:disabled) { background: #3d444d; }
+    .lt-btn-start { background: #3fb950; color: #0d1117; }
+    .lt-btn-start:hover:not(:disabled) { background: #57c96c; }
+    .lt-btn-stop { background: #f85149; color: #fff; }
+    .lt-btn-stop:hover:not(:disabled) { background: #ff6b63; }
+    .lt-warning {
+      background: rgba(248,81,73,0.08);
+      border: 1px solid rgba(248,81,73,0.3);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.8rem;
+      color: #f85149;
+      margin-bottom: 16px;
+      line-height: 1.6;
+    }
+    .lt-position-card {
+      background: rgba(88,166,255,0.06);
+      border: 1px solid #58a6ff;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .lt-position-card.empty {
+      background: rgba(139,148,158,0.06);
+      border-color: #30363d;
+    }
+    .lt-pos-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+    }
+    .lt-pos-item .lt-pos-label { font-size: 0.72rem; color: #8b949e; margin-bottom: 3px; }
+    .lt-pos-item .lt-pos-value { font-size: 1rem; font-weight: 700; }
+    .lt-status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .lt-status-dot.on { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+    .lt-status-dot.off { background: #8b949e; }
+    .lt-slider {
+      accent-color: #58a6ff;
+      width: 120px;
+    }
   </style>
 </head>
 <body>
@@ -416,6 +514,7 @@
   <div class="tabs">
     <button class="tab-btn active" data-tab="chart">차트</button>
     <button class="tab-btn" data-tab="backtesting">백테스팅</button>
+    <button class="tab-btn" data-tab="live-trading">실시간 매매</button>
   </div>
 
   <!-- 차트 탭 -->
@@ -660,6 +759,156 @@
         </table>
       </div>
     </div>
+  </div>
+
+  <!-- 실시간 매매 탭 -->
+  <div class="tab-pane" id="tab-live-trading">
+
+    <div class="lt-warning">
+      ⚠️ 실시간 매매는 실제 자금으로 거래됩니다. 손실이 발생할 수 있으므로 신중하게 사용하세요.<br>
+      최대 포지션은 잔액의 50% 이하이며, 마켓당 1개의 포지션만 허용됩니다.
+    </div>
+
+    <!-- API 키 설정 -->
+    <div class="lt-section">
+      <h3>API 키 설정</h3>
+      <p style="font-size:0.8rem;color:#8b949e;margin:0 0 12px;">키는 서버의 <code style="background:#21262d;padding:1px 5px;border-radius:3px;">upbit_keys</code> 파일에 저장되며 GitHub에 업로드되지 않습니다.<br>자산조회 / 주문조회 / 주문하기 권한을 각각 다른 API 키로 설정할 수 있습니다.</p>
+
+      <div style="font-size:0.78rem;font-weight:700;color:#58a6ff;margin-bottom:6px;">자산조회 API 키</div>
+      <div class="lt-form-row">
+        <span class="lt-label">Access Key</span>
+        <input class="lt-input" type="text" id="ltBalanceAccessKey" placeholder="자산조회 Access Key">
+      </div>
+      <div class="lt-form-row">
+        <span class="lt-label">Secret Key</span>
+        <input class="lt-input" type="password" id="ltBalanceSecretKey" placeholder="자산조회 Secret Key">
+      </div>
+
+      <div style="font-size:0.78rem;font-weight:700;color:#58a6ff;margin:12px 0 6px;">주문조회 API 키</div>
+      <div class="lt-form-row">
+        <span class="lt-label">Access Key</span>
+        <input class="lt-input" type="text" id="ltOrderQueryAccessKey" placeholder="주문조회 Access Key">
+      </div>
+      <div class="lt-form-row">
+        <span class="lt-label">Secret Key</span>
+        <input class="lt-input" type="password" id="ltOrderQuerySecretKey" placeholder="주문조회 Secret Key">
+      </div>
+
+      <div style="font-size:0.78rem;font-weight:700;color:#58a6ff;margin:12px 0 6px;">주문하기 API 키</div>
+      <div class="lt-form-row">
+        <span class="lt-label">Access Key</span>
+        <input class="lt-input" type="text" id="ltOrderAccessKey" placeholder="주문하기 Access Key">
+      </div>
+      <div class="lt-form-row">
+        <span class="lt-label">Secret Key</span>
+        <input class="lt-input" type="password" id="ltOrderSecretKey" placeholder="주문하기 Secret Key">
+      </div>
+
+      <div class="lt-form-row" style="margin-top:12px;">
+        <button class="lt-btn lt-btn-test" onclick="testConnection()">연결 테스트</button>
+        <span id="ltConnStatus" style="font-size:0.82rem;color:#8b949e;"></span>
+      </div>
+    </div>
+
+    <!-- 매매 설정 -->
+    <div class="lt-section">
+      <h3>매매 설정</h3>
+      <div class="lt-form-row">
+        <span class="lt-label">마켓</span>
+        <select class="lt-input" id="ltMarket" style="max-width:200px;"></select>
+      </div>
+      <div class="lt-form-row">
+        <span class="lt-label">전략</span>
+        <select class="lt-input" id="ltStrategy" style="max-width:240px;">
+          <option value="K_VOLATILITY_BREAKOUT">K변동성 돌파</option>
+          <option value="RSI_OVERSOLD_BOUNCE">RSI 과매도 반등</option>
+          <option value="MA_GOLDEN_CROSS">MA 골든크로스</option>
+          <option value="BOLLINGER_BOUNCE">볼린저밴드 반등</option>
+        </select>
+      </div>
+      <div class="lt-form-row">
+        <span class="lt-label">타임프레임</span>
+        <select class="lt-input" id="ltTimeframe" style="max-width:160px;">
+          <option value="minutes60">1시간봉</option>
+          <option value="minutes240">4시간봉</option>
+          <option value="days" selected>1일봉</option>
+          <option value="weeks">주봉</option>
+        </select>
+      </div>
+      <div class="lt-form-row">
+        <span class="lt-label">포지션 크기</span>
+        <input type="range" class="lt-slider" id="ltPositionPct" min="10" max="50" step="5" value="30" oninput="document.getElementById('ltPctDisplay').textContent=this.value+'%'">
+        <span id="ltPctDisplay" style="color:#e6edf3;font-weight:700;min-width:36px;">30%</span>
+        <span style="font-size:0.78rem;color:#8b949e;">(잔액 대비)</span>
+      </div>
+    </div>
+
+    <!-- 제어 버튼 -->
+    <div class="lt-section" style="padding:16px 24px;">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <button class="lt-btn lt-btn-start" id="ltStartBtn" onclick="startTrading()">▶ 자동매매 시작</button>
+        <button class="lt-btn lt-btn-stop" id="ltStopBtn" onclick="stopTrading()" disabled>■ 자동매매 중지</button>
+        <span id="ltRunStatus" style="font-size:0.82rem;color:#8b949e;">
+          <span class="lt-status-dot off" id="ltDot"></span>대기 중
+        </span>
+      </div>
+    </div>
+
+    <!-- 현재 포지션 -->
+    <div class="lt-position-card empty" id="ltPositionCard">
+      <div style="font-size:0.82rem;color:#8b949e;font-weight:600;margin-bottom:12px;">현재 포지션</div>
+      <div id="ltPositionBody" style="color:#8b949e;font-size:0.88rem;">포지션 없음</div>
+    </div>
+
+    <!-- 잔액 -->
+    <div class="lt-section">
+      <h3>계좌 잔액 <button class="lt-btn lt-btn-test" style="padding:4px 10px;font-size:0.78rem;" onclick="refreshBalance()">새로고침</button></h3>
+      <div id="ltBalanceBody" style="font-size:0.88rem;color:#8b949e;">-</div>
+    </div>
+
+    <!-- 주문 이력 -->
+    <div class="trades-table-wrap">
+      <h3 style="display:flex;justify-content:space-between;align-items:center;">
+        실거래 주문 이력
+        <button class="lt-btn lt-btn-test" style="padding:4px 10px;font-size:0.78rem;" onclick="refreshOrders()">새로고침</button>
+      </h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">#</th>
+            <th style="text-align:left">구분</th>
+            <th style="text-align:left">마켓</th>
+            <th>체결가</th>
+            <th>수량</th>
+            <th>체결금액</th>
+            <th style="text-align:left">시각</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody id="ltOrdersBody"><tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px;">주문 없음</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- 실거래 손익 이력 -->
+    <div class="trades-table-wrap" style="margin-top:16px;">
+      <h3>실거래 손익 이력</h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">#</th>
+            <th style="text-align:left">진입일시</th>
+            <th style="text-align:left">청산일시</th>
+            <th>진입가</th>
+            <th>청산가</th>
+            <th>수익률</th>
+            <th>손익 (₩)</th>
+            <th style="text-align:left">청산사유</th>
+          </tr>
+        </thead>
+        <tbody id="ltTradesBody"><tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px;">거래 없음</td></tr></tbody>
+      </table>
+    </div>
+
   </div>
 
 </div>
@@ -1292,6 +1541,257 @@
     const market = document.getElementById("marketSelect").value;
     if (market) loadTicker(market);
   }, 30000);
+
+  // ── 실시간 매매 ──────────────────────────────────────────
+  let ltActive = false;
+  let ltStatusTimer = null;
+
+  // 마켓 선택 동기화
+  function syncLtMarkets() {
+    const src = document.getElementById("marketSelect");
+    const dst = document.getElementById("ltMarket");
+    dst.innerHTML = src.innerHTML;
+    dst.value = src.value;
+  }
+
+  document.getElementById("marketSelect").addEventListener("change", syncLtMarkets);
+
+  function _collectApiKeys() {
+    return {
+      balance_access_key: document.getElementById("ltBalanceAccessKey").value.trim(),
+      balance_secret_key: document.getElementById("ltBalanceSecretKey").value.trim(),
+      order_query_access_key: document.getElementById("ltOrderQueryAccessKey").value.trim(),
+      order_query_secret_key: document.getElementById("ltOrderQuerySecretKey").value.trim(),
+      order_access_key: document.getElementById("ltOrderAccessKey").value.trim(),
+      order_secret_key: document.getElementById("ltOrderSecretKey").value.trim(),
+    };
+  }
+
+  function _allKeysPresent(keys) {
+    return Object.values(keys).every(v => v.length > 0);
+  }
+
+  async function testConnection() {
+    const keys = _collectApiKeys();
+    const statusEl = document.getElementById("ltConnStatus");
+    if (!_allKeysPresent(keys)) { statusEl.textContent = "API 키 3종을 모두 입력해주세요"; statusEl.style.color = "#f85149"; return; }
+    statusEl.textContent = "연결 중..."; statusEl.style.color = "#8b949e";
+    try {
+      const res = await fetch("/api/trading/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...keys,
+          market: document.getElementById("ltMarket").value,
+          strategy: document.getElementById("ltStrategy").value,
+          timeframe: document.getElementById("ltTimeframe").value,
+          position_size_pct: parseFloat(document.getElementById("ltPositionPct").value) / 100,
+        }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        statusEl.textContent = d.message; statusEl.style.color = "#3fb950";
+        refreshBalance();
+      } else {
+        statusEl.textContent = d.error; statusEl.style.color = "#f85149";
+      }
+    } catch (e) {
+      statusEl.textContent = "요청 실패"; statusEl.style.color = "#f85149";
+    }
+  }
+
+  async function startTrading() {
+    const keys = _collectApiKeys();
+    const market = document.getElementById("ltMarket").value;
+    if (!market) { alert("마켓을 선택해주세요"); return; }
+    if (!_allKeysPresent(keys)) { alert("API 키 3종(자산조회 / 주문조회 / 주문하기)을 모두 설정해주세요"); return; }
+
+    const body = {
+      ...keys,
+      market,
+      strategy: document.getElementById("ltStrategy").value,
+      timeframe: document.getElementById("ltTimeframe").value,
+      position_size_pct: parseFloat(document.getElementById("ltPositionPct").value) / 100,
+    };
+
+    try {
+      const res = await fetch("/api/trading/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        ltActive = true;
+        document.getElementById("ltStartBtn").disabled = true;
+        document.getElementById("ltStopBtn").disabled = false;
+        document.getElementById("ltDot").className = "lt-status-dot on";
+        document.getElementById("ltRunStatus").innerHTML = '<span class="lt-status-dot on" id="ltDot"></span>자동매매 실행 중';
+        refreshStatus();
+        ltStatusTimer = setInterval(refreshStatus, 10000);
+      } else {
+        alert("시작 실패: " + d.error);
+      }
+    } catch (e) {
+      alert("요청 실패");
+    }
+  }
+
+  async function stopTrading() {
+    const market = document.getElementById("ltMarket").value;
+    try {
+      const res = await fetch("/api/trading/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ market }),
+      });
+      if (res.ok) {
+        ltActive = false;
+        document.getElementById("ltStartBtn").disabled = false;
+        document.getElementById("ltStopBtn").disabled = true;
+        document.getElementById("ltRunStatus").innerHTML = '<span class="lt-status-dot off" id="ltDot"></span>대기 중';
+        if (ltStatusTimer) { clearInterval(ltStatusTimer); ltStatusTimer = null; }
+        refreshStatus();
+      }
+    } catch (e) {
+      alert("요청 실패");
+    }
+  }
+
+  async function refreshStatus() {
+    try {
+      const res = await fetch("/api/trading/status");
+      const d = await res.json();
+
+      // 스케줄러 상태 반영
+      const running = d.scheduler && d.scheduler.running && d.scheduler.active_markets && d.scheduler.active_markets.length > 0;
+      if (running !== ltActive) {
+        ltActive = running;
+        document.getElementById("ltStartBtn").disabled = running;
+        document.getElementById("ltStopBtn").disabled = !running;
+        document.getElementById("ltRunStatus").innerHTML = running
+          ? '<span class="lt-status-dot on" id="ltDot"></span>자동매매 실행 중'
+          : '<span class="lt-status-dot off" id="ltDot"></span>대기 중';
+        if (running && !ltStatusTimer) ltStatusTimer = setInterval(refreshStatus, 10000);
+        if (!running && ltStatusTimer) { clearInterval(ltStatusTimer); ltStatusTimer = null; }
+      }
+
+      // 포지션 표시
+      const posCard = document.getElementById("ltPositionCard");
+      const posBody = document.getElementById("ltPositionBody");
+      if (d.position) {
+        const p = d.pnl || {};
+        const pnl = p.unrealized_pnl_pct !== undefined ? p.unrealized_pnl_pct : 0;
+        const pnlKrw = p.unrealized_pnl_krw !== undefined ? p.unrealized_pnl_krw : 0;
+        const color = pnl >= 0 ? "#3fb950" : "#f85149";
+        posCard.className = "lt-position-card";
+        posBody.innerHTML = `<div class="lt-pos-grid">
+          <div class="lt-pos-item"><div class="lt-pos-label">마켓</div><div class="lt-pos-value">${d.position.market}</div></div>
+          <div class="lt-pos-item"><div class="lt-pos-label">전략</div><div class="lt-pos-value" style="font-size:0.82rem">${d.position.strategy}</div></div>
+          <div class="lt-pos-item"><div class="lt-pos-label">진입가</div><div class="lt-pos-value">${Number(d.position.entry_price).toLocaleString("ko-KR")} ₩</div></div>
+          <div class="lt-pos-item"><div class="lt-pos-label">현재가</div><div class="lt-pos-value">${p.current_price ? Number(p.current_price).toLocaleString("ko-KR")+"₩" : "-"}</div></div>
+          <div class="lt-pos-item"><div class="lt-pos-label">수량</div><div class="lt-pos-value">${Number(d.position.quantity).toFixed(8)}</div></div>
+          <div class="lt-pos-item"><div class="lt-pos-label">미실현 손익</div><div class="lt-pos-value" style="color:${color}">${(pnl*100).toFixed(2)}% (${pnlKrw >= 0?"+":""}${Math.round(pnlKrw).toLocaleString("ko-KR")}₩)</div></div>
+          <div class="lt-pos-item"><div class="lt-pos-label">진입일시</div><div class="lt-pos-value" style="font-size:0.78rem;font-weight:400">${(d.position.entry_datetime||"").slice(0,16).replace("T"," ")}</div></div>
+        </div>`;
+      } else {
+        posCard.className = "lt-position-card empty";
+        posBody.innerHTML = '<span style="color:#8b949e;font-size:0.88rem;">포지션 없음</span>';
+      }
+
+      // 잔액
+      if (d.balance) {
+        document.getElementById("ltBalanceBody").innerHTML =
+          `KRW 가용: <strong style="color:#e6edf3">${Math.floor(d.balance.krw_balance).toLocaleString("ko-KR")} ₩</strong>
+          &nbsp; 대기주문: <strong style="color:#8b949e">${Math.floor(d.balance.krw_locked).toLocaleString("ko-KR")} ₩</strong>
+          ${d.balance.coin_balance > 0 ? ` &nbsp; 코인: <strong style="color:#e6edf3">${d.balance.coin_balance}</strong>` : ""}`;
+      }
+    } catch (e) { /* ignore */ }
+
+    refreshOrders();
+  }
+
+  async function refreshBalance() {
+    try {
+      const res = await fetch("/api/trading/balance");
+      if (!res.ok) return;
+      const d = await res.json();
+      document.getElementById("ltBalanceBody").innerHTML =
+        `KRW 가용: <strong style="color:#e6edf3">${Math.floor(d.krw_balance).toLocaleString("ko-KR")} ₩</strong>
+        &nbsp; 대기주문: <strong style="color:#8b949e">${Math.floor(d.krw_locked).toLocaleString("ko-KR")} ₩</strong>
+        ${d.coin_balance > 0 ? ` &nbsp; 코인: <strong style="color:#e6edf3">${d.coin_balance}</strong>` : ""}`;
+    } catch (e) { /* ignore */ }
+  }
+
+  async function refreshOrders() {
+    try {
+      const [ordRes, tradeRes] = await Promise.all([
+        fetch("/api/trading/orders"),
+        fetch("/api/trading/trades"),
+      ]);
+      const { orders } = await ordRes.json();
+      const { trades } = await tradeRes.json();
+      const fmt = n => Number(n).toLocaleString("ko-KR");
+      const ordBody = document.getElementById("ltOrdersBody");
+      if (orders && orders.length > 0) {
+        ordBody.innerHTML = orders.map((o, i) => {
+          const side = o.side === "bid" ? '<span style="color:#3fb950">매수</span>' : '<span style="color:#f85149">매도</span>';
+          return `<tr>
+            <td>${orders.length - i}</td>
+            <td style="text-align:left">${side}</td>
+            <td style="text-align:left">${o.market}</td>
+            <td>${o.price > 0 ? fmt(o.price)+" ₩" : "-"}</td>
+            <td>${o.volume}</td>
+            <td>${o.executed_funds > 0 ? fmt(Math.round(o.executed_funds))+" ₩" : "-"}</td>
+            <td style="text-align:left;font-size:0.78rem;color:#8b949e">${(o.created_at||"").slice(0,16).replace("T"," ")}</td>
+            <td><span style="color:${o.status==="done"?"#3fb950":"#8b949e"}">${o.status}</span></td>
+          </tr>`;
+        }).join("");
+      } else {
+        ordBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px;">주문 없음</td></tr>';
+      }
+
+      const tradeBody = document.getElementById("ltTradesBody");
+      if (trades && trades.length > 0) {
+        const exitLabels = { take_profit: "익절", stop_loss: "손절", strategy_signal: "전략신호" };
+        tradeBody.innerHTML = trades.map((t, i) => {
+          const pnl = t.pnl_pct || 0;
+          const color = pnl >= 0 ? "#3fb950" : "#f85149";
+          return `<tr>
+            <td>${trades.length - i}</td>
+            <td style="text-align:left;color:#8b949e;font-size:0.78rem">${(t.buy_datetime||"").slice(0,16).replace("T"," ")}</td>
+            <td style="text-align:left;color:#8b949e;font-size:0.78rem">${(t.sell_datetime||"").slice(0,16).replace("T"," ")}</td>
+            <td>${fmt(Math.round(t.buy_price))} ₩</td>
+            <td>${fmt(Math.round(t.sell_price))} ₩</td>
+            <td style="color:${color}">${(pnl*100).toFixed(2)}%</td>
+            <td style="color:${color}">${(t.pnl_krw>=0?"+":"")+fmt(t.pnl_krw)} ₩</td>
+            <td style="text-align:left">${exitLabels[t.exit_reason]||t.exit_reason}</td>
+          </tr>`;
+        }).join("");
+      } else {
+        tradeBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px;">거래 없음</td></tr>';
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // 실시간 매매 탭 클릭 시 상태 로드
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click_lt_hook", () => {
+      if (btn.dataset.tab === "live-trading") {
+        syncLtMarkets();
+        refreshStatus();
+      }
+    });
+  });
+
+  // 탭 이벤트에 실시간 매매 탭 초기화 연결
+  const origTabHandler = document.querySelector(".tabs");
+  origTabHandler && origTabHandler.addEventListener("click", e => {
+    if (e.target.dataset && e.target.dataset.tab === "live-trading") {
+      syncLtMarkets();
+      refreshStatus();
+    }
+  });
 </script>
 
 </body>
