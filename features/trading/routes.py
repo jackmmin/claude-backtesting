@@ -214,6 +214,11 @@ def get_status():
         from exchanges.upbit.ticker import get_ticker
         config = _build_config(saved)
 
+        # 업비트 보유 코인 중 미추적 포지션을 수동 포지션으로 자동 등록
+        trading_service.sync_untracked_positions(config)
+        auto_position = sm.get_position(source="auto")
+        manual_position = sm.get_position(source="manual")
+
         if auto_position:
             ticker = get_ticker(auto_position["market"])
             if ticker:

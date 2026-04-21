@@ -11,6 +11,54 @@ MAX_KRW_PER_TRADE = 50_000_000
 MAX_DAILY_TRADES = 20
 
 
+def sync_untracked_positions(config: TradingConfig) -> list:
+    """업비트 보유 코인 중 auto/manual 포지션으로 미추적된 코인을 수동 포지션으로 자동 등록.
+    manual_position이 이미 있으면 덮어쓰지 않는다."""
+    try:
+        accounts = upbit.get_accounts(config.balance_access_key, config.balance_secret_key)
+    except Exception:
+        return []
+
+    auto_pos = sm.get_position(source="auto")
+    manual_pos = sm.get_position(source="manual")
+
+    tracked = set()
+    if auto_pos:
+        tracked.add(auto_pos["market"])
+    if manual_pos:
+        tracked.add(manual_pos["market"])
+
+    registered = []
+    for account in accounts:
+        if account["currency"] == "KRW":
+            continue
+        total_qty = float(account.get("balance", 0)) + float(account.get("locked", 0))
+        if total_qty <= 0:
+            continue
+        market = f"KRW-{account['currency']}"
+        if market in tracked:
+            continue
+        avg_price = float(account.get("avg_buy_price", 0))
+        if avg_price <= 0:
+            continue
+        # manual_position 슬롯이 비어있을 때만 등록
+        if sm.get_position(source="manual"):
+            break
+        pos = Position(
+            market=market,
+            entry_price=avg_price,
+            entry_datetime=datetime.now().isoformat(),
+            quantity=total_qty,
+            strategy="MANUAL",
+            source="manual",
+        )
+        sm.set_position(pos)
+        tracked.add(market)
+        registered.append(market)
+
+    return registered
+
+
 def get_balance(config: TradingConfig) -> dict:
     """KRW 잔액 및 보유 코인 조회"""
     accounts = upbit.get_accounts(config.balance_access_key, config.balance_secret_key)
