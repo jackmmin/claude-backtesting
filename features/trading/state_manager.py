@@ -7,8 +7,9 @@ STATE_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "trading_state.
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "trading_config.json")
 
 _EMPTY_STATE = {
-    "version": "1.0",
-    "current_position": None,
+    "version": "1.1",
+    "auto_position": None,
+    "manual_position": None,
     "orders": [],
     "trades": [],
     "daily_trade_count": {},
@@ -20,7 +21,13 @@ def _read_state():
     if not os.path.exists(path):
         return dict(_EMPTY_STATE)
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        state = json.load(f)
+    # v1.0 → v1.1 마이그레이션: current_position → auto_position
+    if "current_position" in state and "auto_position" not in state:
+        state["auto_position"] = state.pop("current_position")
+        state["manual_position"] = None
+        state["version"] = "1.1"
+    return state
 
 
 def _write_state(state):
@@ -29,27 +36,32 @@ def _write_state(state):
         json.dump(state, f, ensure_ascii=False, indent=2)
 
 
-def get_position() -> dict | None:
-    return _read_state().get("current_position")
+def get_position(source: str = "auto") -> dict | None:
+    # source: "auto" | "manual"
+    key = "auto_position" if source == "auto" else "manual_position"
+    return _read_state().get(key)
 
 
 def set_position(position: Position):
     state = _read_state()
-    state["current_position"] = {
+    key = "auto_position" if position.source == "auto" else "manual_position"
+    state[key] = {
         "market": position.market,
         "entry_price": position.entry_price,
         "entry_datetime": position.entry_datetime,
         "quantity": position.quantity,
         "strategy": position.strategy,
+        "source": position.source,
         "strategy_params": position.strategy_params,
         "entry_order_uuid": position.entry_order_uuid,
     }
     _write_state(state)
 
 
-def close_position(sell_price: float, sell_datetime: str, exit_reason: str, order_uuid: str = ""):
+def close_position(sell_price: float, sell_datetime: str, exit_reason: str, order_uuid: str = "", source: str = "auto"):
     state = _read_state()
-    pos = state.get("current_position")
+    key = "auto_position" if source == "auto" else "manual_position"
+    pos = state.get(key)
     if pos:
         pnl_pct = (sell_price - pos["entry_price"]) / pos["entry_price"]
         state["trades"].append({
@@ -61,10 +73,11 @@ def close_position(sell_price: float, sell_datetime: str, exit_reason: str, orde
             "pnl_pct": round(pnl_pct, 6),
             "pnl_krw": round(pos["quantity"] * (sell_price - pos["entry_price"])),
             "strategy": pos["strategy"],
+            "source": pos.get("source", source),
             "exit_reason": exit_reason,
             "sell_order_uuid": order_uuid,
         })
-    state["current_position"] = None
+    state[key] = None
     _write_state(state)
 
 

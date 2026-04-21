@@ -25,9 +25,9 @@ def get_balance(config: TradingConfig) -> dict:
     }
 
 
-def get_position_pnl(config: TradingConfig, current_price: float) -> dict | None:
+def get_position_pnl(config: TradingConfig, current_price: float, source: str = "auto") -> dict | None:
     """현재 포지션 미실현 손익 계산"""
-    pos = sm.get_position()
+    pos = sm.get_position(source=source)
     if not pos or pos["market"] != config.market:
         return None
     entry = pos["entry_price"]
@@ -70,7 +70,7 @@ def check_and_execute(config: TradingConfig) -> dict:
     if not target:
         return {"status": "skipped", "reason": "전략 신호 없음", "time": now_str}
 
-    position = sm.get_position()
+    position = sm.get_position(source="auto")
 
     if not position and target["triggered"]:
         return _execute_buy(config, date_str, now_str)
@@ -108,6 +108,7 @@ def _execute_buy(config: TradingConfig, date_str: str, now_str: str) -> dict:
         entry_datetime=datetime.now().isoformat(),
         quantity=executed_volume,
         strategy=config.strategy,
+        source="auto",
         strategy_params=config.strategy_params,
         entry_order_uuid=result.get("uuid", ""),
     )
@@ -180,7 +181,7 @@ def _execute_sell(config: TradingConfig, position: dict, current_price: float, e
     avg_sell_price = executed_funds / executed_volume if executed_volume > 0 else current_price
     sell_price_net = avg_sell_price * (1 - FEE_RATE)
 
-    sm.close_position(sell_price_net, datetime.now().isoformat(), exit_reason, result.get("uuid", ""))
+    sm.close_position(sell_price_net, datetime.now().isoformat(), exit_reason, result.get("uuid", ""), source="auto")
     sm.add_order(Order(
         order_uuid=result.get("uuid", ""),
         side="ask",

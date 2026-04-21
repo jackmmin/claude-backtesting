@@ -28,6 +28,7 @@ class Position:
     entry_datetime: str       # ISO 8601
     quantity: float           # 코인 수량
     strategy: str
+    source: str = "auto"      # "auto" (자동매매) | "manual" (직접 진입)
     strategy_params: dict = field(default_factory=dict)
     entry_order_uuid: str = ""
 

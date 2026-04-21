@@ -202,36 +202,95 @@ def stop_trading():
 def get_status():
     """현재 상태 조회 (포지션, 잔액, 스케줄러)"""
     saved = sm.load_config()
-    position = sm.get_position()
+    auto_position = sm.get_position(source="auto")
+    manual_position = sm.get_position(source="manual")
     scheduler_status = sch.get_status()
 
-    ticker_price = None
     pnl_info = None
+    manual_pnl_info = None
     balance_info = None
 
-    if saved and position and has_keys():
-        from exchanges.upbit.ticker import get_ticker
-        ticker = get_ticker(position["market"])
-        if ticker:
-            ticker_price = ticker[0]["trade_price"]
-            config = _build_config(saved)
-            pnl_info = trading_service.get_position_pnl(config, ticker_price)
-
     if saved and has_keys():
+        from exchanges.upbit.ticker import get_ticker
+        config = _build_config(saved)
+
+        if auto_position:
+            ticker = get_ticker(auto_position["market"])
+            if ticker:
+                pnl_info = trading_service.get_position_pnl(config, ticker[0]["trade_price"], source="auto")
+
+        if manual_position:
+            ticker = get_ticker(manual_position["market"])
+            if ticker:
+                manual_pnl_info = trading_service.get_position_pnl(config, ticker[0]["trade_price"], source="manual")
+
         try:
-            config = _build_config(saved)
             balance_info = trading_service.get_balance(config)
         except Exception:
             balance_info = None
 
     return jsonify({
         "scheduler": scheduler_status,
-        "position": position,
+        "auto_position": auto_position,
+        "manual_position": manual_position,
+        # 하위 호환: 자동 포지션을 position 필드로도 반환
+        "position": auto_position,
         "pnl": pnl_info,
+        "manual_pnl": manual_pnl_info,
         "balance": balance_info,
         "config": saved,
         "has_keys": has_keys(),
     })
+
+
+@trading_bp.route("/trading/position/manual", methods=["POST"])
+def set_manual_position():
+    """수동으로 진입한 포지션 등록"""
+    data = request.json or {}
+    required = ["market", "entry_price", "quantity", "entry_datetime"]
+    for f in required:
+        if not data.get(f):
+            return jsonify({"error": f"{f} 필드가 필요합니다"}), 400
+
+    from .models import Position
+    pos = Position(
+        market=data["market"],
+        entry_price=float(data["entry_price"]),
+        entry_datetime=data["entry_datetime"],
+        quantity=float(data["quantity"]),
+        strategy=data.get("strategy", "MANUAL"),
+        source="manual",
+        strategy_params={},
+        entry_order_uuid=data.get("order_uuid", ""),
+    )
+    sm.set_position(pos)
+    return jsonify({"success": True, "manual_position": sm.get_position(source="manual")})
+
+
+@trading_bp.route("/trading/position/manual", methods=["DELETE"])
+def close_manual_position():
+    """수동 포지션 청산 기록"""
+    data = request.json or {}
+    pos = sm.get_position(source="manual")
+    if not pos:
+        return jsonify({"error": "수동 포지션이 없습니다"}), 404
+
+    sell_price = data.get("sell_price")
+    if not sell_price:
+        # 현재가로 청산
+        from exchanges.upbit.ticker import get_ticker
+        ticker = get_ticker(pos["market"])
+        if not ticker:
+            return jsonify({"error": "현재가 조회 실패"}), 500
+        sell_price = ticker[0]["trade_price"]
+
+    sm.close_position(
+        float(sell_price),
+        datetime.now().isoformat(),
+        data.get("exit_reason", "manual_close"),
+        source="manual",
+    )
+    return jsonify({"success": True})
 
 
 @trading_bp.route("/trading/orders", methods=["GET"])

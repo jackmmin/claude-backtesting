@@ -463,7 +463,7 @@
     }
     .lt-position-card {
       background: rgba(88,166,255,0.06);
-      border: 1px solid #58a6ff;
+      border: 1px solid #1c6ef3;
       border-radius: 10px;
       padding: 16px 20px;
       margin-bottom: 16px;
@@ -830,10 +830,45 @@
       </div>
     </div>
 
-    <!-- 현재 포지션 -->
-    <div class="lt-position-card empty" id="ltPositionCard">
-      <div style="font-size:0.82rem;color:#8b949e;font-weight:600;margin-bottom:12px;">현재 포지션</div>
-      <div id="ltPositionBody" style="color:#8b949e;font-size:0.88rem;">포지션 없음</div>
+    <!-- 자동매매 포지션 -->
+    <div class="lt-position-card empty" id="ltAutoPositionCard">
+      <div style="font-size:0.82rem;color:#8b949e;font-weight:600;margin-bottom:12px;">
+        <span style="background:#1c6ef3;color:#fff;padding:1px 7px;border-radius:10px;font-size:0.72rem;margin-right:6px;">자동</span>자동매매 포지션
+      </div>
+      <div id="ltAutoPositionBody" style="color:#8b949e;font-size:0.88rem;">포지션 없음</div>
+    </div>
+
+    <!-- 수동 포지션 -->
+    <div class="lt-position-card empty" id="ltManualPositionCard">
+      <div style="font-size:0.82rem;color:#8b949e;font-weight:600;margin-bottom:12px;">
+        <span style="background:#3fb950;color:#fff;padding:1px 7px;border-radius:10px;font-size:0.72rem;margin-right:6px;">수동</span>직접 진입 포지션
+        <button class="lt-btn lt-btn-test" style="padding:2px 8px;font-size:0.72rem;margin-left:8px;" onclick="toggleManualPositionForm()">+ 포지션 등록</button>
+      </div>
+      <div id="ltManualPositionForm" style="display:none;margin-bottom:12px;padding:12px;background:rgba(63,185,80,0.06);border:1px solid #238636;border-radius:8px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:0.72rem;color:#8b949e;margin-bottom:3px;">마켓</div>
+            <input id="mpMarket" class="lt-input" style="width:100%;padding:4px 8px;font-size:0.82rem;" placeholder="KRW-BTC" />
+          </div>
+          <div>
+            <div style="font-size:0.72rem;color:#8b949e;margin-bottom:3px;">진입가 (₩)</div>
+            <input id="mpEntryPrice" type="number" class="lt-input" style="width:100%;padding:4px 8px;font-size:0.82rem;" placeholder="100000000" />
+          </div>
+          <div>
+            <div style="font-size:0.72rem;color:#8b949e;margin-bottom:3px;">수량</div>
+            <input id="mpQuantity" type="number" class="lt-input" style="width:100%;padding:4px 8px;font-size:0.82rem;" placeholder="0.001" step="any" />
+          </div>
+          <div>
+            <div style="font-size:0.72rem;color:#8b949e;margin-bottom:3px;">진입일시</div>
+            <input id="mpEntryDatetime" type="datetime-local" class="lt-input" style="width:100%;padding:4px 8px;font-size:0.82rem;" />
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="lt-btn lt-btn-start" style="padding:5px 14px;font-size:0.82rem;" onclick="registerManualPosition()">등록</button>
+          <button class="lt-btn lt-btn-stop" style="padding:5px 14px;font-size:0.82rem;" onclick="toggleManualPositionForm()">취소</button>
+        </div>
+      </div>
+      <div id="ltManualPositionBody" style="color:#8b949e;font-size:0.88rem;">포지션 없음</div>
     </div>
 
     <!-- 잔액 -->
@@ -1638,6 +1673,84 @@
     }
   }
 
+  function renderPositionCard(card, body, position, pnl, isManual) {
+    if (position) {
+      const p = pnl || {};
+      const pnlPct = p.unrealized_pnl_pct !== undefined ? p.unrealized_pnl_pct : 0;
+      const pnlKrw = p.unrealized_pnl_krw !== undefined ? p.unrealized_pnl_krw : 0;
+      const color = pnlPct >= 0 ? "#3fb950" : "#f85149";
+      const borderColor = isManual ? "#238636" : "#1c6ef3";
+      card.style.borderColor = borderColor;
+      card.className = "lt-position-card";
+      const closeBtn = isManual
+        ? `<button class="lt-btn lt-btn-stop" style="padding:3px 10px;font-size:0.75rem;margin-top:10px;" onclick="closeManualPosition()">포지션 청산</button>`
+        : "";
+      body.innerHTML = `<div class="lt-pos-grid">
+        <div class="lt-pos-item"><div class="lt-pos-label">마켓</div><div class="lt-pos-value">${position.market}</div></div>
+        <div class="lt-pos-item"><div class="lt-pos-label">전략</div><div class="lt-pos-value" style="font-size:0.82rem">${position.strategy}</div></div>
+        <div class="lt-pos-item"><div class="lt-pos-label">진입가</div><div class="lt-pos-value">${Number(position.entry_price).toLocaleString("ko-KR")} ₩</div></div>
+        <div class="lt-pos-item"><div class="lt-pos-label">현재가</div><div class="lt-pos-value">${p.current_price ? Number(p.current_price).toLocaleString("ko-KR")+"₩" : "-"}</div></div>
+        <div class="lt-pos-item"><div class="lt-pos-label">수량</div><div class="lt-pos-value">${Number(position.quantity).toFixed(8)}</div></div>
+        <div class="lt-pos-item"><div class="lt-pos-label">미실현 손익</div><div class="lt-pos-value" style="color:${color}">${(pnlPct*100).toFixed(2)}% (${pnlKrw>=0?"+":""}${Math.round(pnlKrw).toLocaleString("ko-KR")}₩)</div></div>
+        <div class="lt-pos-item"><div class="lt-pos-label">진입일시</div><div class="lt-pos-value" style="font-size:0.78rem;font-weight:400">${(position.entry_datetime||"").slice(0,16).replace("T"," ")}</div></div>
+      </div>${closeBtn}`;
+    } else {
+      card.className = "lt-position-card empty";
+      card.style.borderColor = "";
+      body.innerHTML = '<span style="color:#8b949e;font-size:0.88rem;">포지션 없음</span>';
+    }
+  }
+
+  function toggleManualPositionForm() {
+    const form = document.getElementById("ltManualPositionForm");
+    const visible = form.style.display !== "none";
+    form.style.display = visible ? "none" : "block";
+    if (!visible) {
+      // 현재 선택된 마켓 자동 입력
+      const market = document.getElementById("ltMarket").value || document.getElementById("marketSelect").value;
+      if (market) document.getElementById("mpMarket").value = market;
+      // 현재 시각 자동 입력
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      document.getElementById("mpEntryDatetime").value = now.toISOString().slice(0,16);
+    }
+  }
+
+  async function registerManualPosition() {
+    const market = document.getElementById("mpMarket").value.trim().toUpperCase();
+    const entryPrice = parseFloat(document.getElementById("mpEntryPrice").value);
+    const quantity = parseFloat(document.getElementById("mpQuantity").value);
+    const entryDatetime = document.getElementById("mpEntryDatetime").value;
+    if (!market || !entryPrice || !quantity || !entryDatetime) {
+      alert("모든 필드를 입력해주세요."); return;
+    }
+    const isoDatetime = new Date(entryDatetime).toISOString();
+    const res = await fetch("/api/trading/position/manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ market, entry_price: entryPrice, quantity, entry_datetime: isoDatetime }),
+    });
+    const d = await res.json();
+    if (res.ok) {
+      toggleManualPositionForm();
+      refreshStatus();
+    } else {
+      alert("등록 실패: " + d.error);
+    }
+  }
+
+  async function closeManualPosition() {
+    if (!confirm("수동 포지션을 청산하시겠습니까?\n현재가로 청산 기록됩니다.")) return;
+    const res = await fetch("/api/trading/position/manual", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ exit_reason: "manual_close" }),
+    });
+    const d = await res.json();
+    if (res.ok) refreshStatus();
+    else alert("청산 실패: " + d.error);
+  }
+
   async function refreshStatus() {
     try {
       const res = await fetch("/api/trading/status");
@@ -1656,28 +1769,22 @@
         if (!running && ltStatusTimer) { clearInterval(ltStatusTimer); ltStatusTimer = null; }
       }
 
-      // 포지션 표시
-      const posCard = document.getElementById("ltPositionCard");
-      const posBody = document.getElementById("ltPositionBody");
-      if (d.position) {
-        const p = d.pnl || {};
-        const pnl = p.unrealized_pnl_pct !== undefined ? p.unrealized_pnl_pct : 0;
-        const pnlKrw = p.unrealized_pnl_krw !== undefined ? p.unrealized_pnl_krw : 0;
-        const color = pnl >= 0 ? "#3fb950" : "#f85149";
-        posCard.className = "lt-position-card";
-        posBody.innerHTML = `<div class="lt-pos-grid">
-          <div class="lt-pos-item"><div class="lt-pos-label">마켓</div><div class="lt-pos-value">${d.position.market}</div></div>
-          <div class="lt-pos-item"><div class="lt-pos-label">전략</div><div class="lt-pos-value" style="font-size:0.82rem">${d.position.strategy}</div></div>
-          <div class="lt-pos-item"><div class="lt-pos-label">진입가</div><div class="lt-pos-value">${Number(d.position.entry_price).toLocaleString("ko-KR")} ₩</div></div>
-          <div class="lt-pos-item"><div class="lt-pos-label">현재가</div><div class="lt-pos-value">${p.current_price ? Number(p.current_price).toLocaleString("ko-KR")+"₩" : "-"}</div></div>
-          <div class="lt-pos-item"><div class="lt-pos-label">수량</div><div class="lt-pos-value">${Number(d.position.quantity).toFixed(8)}</div></div>
-          <div class="lt-pos-item"><div class="lt-pos-label">미실현 손익</div><div class="lt-pos-value" style="color:${color}">${(pnl*100).toFixed(2)}% (${pnlKrw >= 0?"+":""}${Math.round(pnlKrw).toLocaleString("ko-KR")}₩)</div></div>
-          <div class="lt-pos-item"><div class="lt-pos-label">진입일시</div><div class="lt-pos-value" style="font-size:0.78rem;font-weight:400">${(d.position.entry_datetime||"").slice(0,16).replace("T"," ")}</div></div>
-        </div>`;
-      } else {
-        posCard.className = "lt-position-card empty";
-        posBody.innerHTML = '<span style="color:#8b949e;font-size:0.88rem;">포지션 없음</span>';
-      }
+      // 자동매매 포지션 표시
+      renderPositionCard(
+        document.getElementById("ltAutoPositionCard"),
+        document.getElementById("ltAutoPositionBody"),
+        d.auto_position || d.position,
+        d.pnl,
+        false
+      );
+      // 수동 포지션 표시
+      renderPositionCard(
+        document.getElementById("ltManualPositionCard"),
+        document.getElementById("ltManualPositionBody"),
+        d.manual_position,
+        d.manual_pnl,
+        true
+      );
 
       // 잔액
       if (d.balance) {
