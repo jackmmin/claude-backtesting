@@ -601,7 +601,11 @@ async function refreshKeyStatus() {
     const res = await fetch("/api/trading/keys");
     const d   = await res.json();
     const pathEl = document.getElementById("ltKeyFilePath");
-    if (pathEl) pathEl.textContent = d.key_file || "-";
+    if (pathEl) {
+      const raw = d.key_file || "-";
+      const fileName = raw === "-" ? raw : raw.replace(/^.*[/\\]/, "");
+      pathEl.textContent = fileName;
+    }
     [
       { id: "ltKeyStatusBalance",    has: d.has_balance },
       { id: "ltKeyStatusOrderQuery", has: d.has_order_query },

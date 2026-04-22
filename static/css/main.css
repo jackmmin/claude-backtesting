@@ -430,9 +430,9 @@ tr:hover td { background: rgba(88,166,255,0.04); }
 /* ── 토스트 알림 ── */
 #toast {
   position: fixed;
-  bottom: 36px;
+  top: 36px;
   left: 50%;
-  transform: translateX(-50%) translateY(20px);
+  transform: translateX(-50%) translateY(-20px);
   background: #21262d;
   border: 1px solid #f85149;
   color: #f85149;
