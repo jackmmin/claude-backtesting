@@ -10,7 +10,9 @@ def run_backtest(
     strategy="K_VOLATILITY_BREAKOUT",
     k=0.5,
     k_tp=0.05, k_sl=-0.03, k_use_tp=True, k_use_sl=True,
-    k_ma_filter=False, k_ma_period=20,
+    k_ma1_filter=False, k_ma1_period=5,
+    k_ma2_filter=False, k_ma2_period=20,
+    k_ma3_filter=False, k_ma3_period=60,
     k_volume_filter=False, k_volume_mult=1.5,
     rsi_period=14, rsi_threshold=30, rsi_exit=62, rsi_tp=0.07, rsi_sl=-0.04,
     rsi_entry_mode="crossover",
@@ -37,7 +39,9 @@ def run_backtest(
     if strategy == "K_VOLATILITY_BREAKOUT":
         return _k_volatility_backtest(data, k=k, initial_capital=initial_capital,
                                       k_tp=k_tp, k_sl=k_sl, k_use_tp=k_use_tp, k_use_sl=k_use_sl,
-                                      k_ma_filter=k_ma_filter, k_ma_period=k_ma_period,
+                                      k_ma1_filter=k_ma1_filter, k_ma1_period=k_ma1_period,
+                                      k_ma2_filter=k_ma2_filter, k_ma2_period=k_ma2_period,
+                                      k_ma3_filter=k_ma3_filter, k_ma3_period=k_ma3_period,
                                       k_volume_filter=k_volume_filter, k_volume_mult=k_volume_mult)
     if strategy == "RSI_OVERSOLD_BOUNCE":
         return _rsi_oversold_backtest(data, period=rsi_period, threshold=rsi_threshold,
@@ -67,20 +71,35 @@ def run_backtest(
 
 def _k_volatility_backtest(data, k=0.5, initial_capital=1000000,
                             k_tp=0.05, k_sl=-0.03, k_use_tp=True, k_use_sl=True,
-                            k_ma_filter=False, k_ma_period=20,
+                            k_ma1_filter=False, k_ma1_period=5,
+                            k_ma2_filter=False, k_ma2_period=20,
+                            k_ma3_filter=False, k_ma3_period=60,
                             k_volume_filter=False, k_volume_mult=1.5):
     trades = []
+    ma_configs = [
+        (k_ma1_filter, k_ma1_period),
+        (k_ma2_filter, k_ma2_period),
+        (k_ma3_filter, k_ma3_period),
+    ]
     for i in range(1, len(data)):
         prev = data[i - 1]
         curr = data[i]
 
-        # MA 추세 필터: 시가가 MA 아래면 진입 제외
-        if k_ma_filter:
-            if i < k_ma_period:
+        # 활성화된 모든 MA 추세 필터 통과 시 진입 (시가가 각 MA 위에 있어야 함)
+        skip = False
+        closes_i = [c["trade_price"] for c in data[:i]]
+        for enabled, period in ma_configs:
+            if not enabled:
                 continue
-            ma = _sma([c["trade_price"] for c in data[:i]], k_ma_period)
+            if i < period:
+                skip = True
+                break
+            ma = _sma(closes_i, period)
             if ma is not None and curr["opening_price"] < ma:
-                continue
+                skip = True
+                break
+        if skip:
+            continue
 
         # 볼륨 필터: 당일 거래량이 최근 20일 평균 × 배수 미만이면 진입 제외
         if k_volume_filter:
@@ -140,7 +159,9 @@ def _k_volatility_backtest(data, k=0.5, initial_capital=1000000,
     return _build_result("K_VOLATILITY_BREAKOUT", trades, initial_capital, current_signal,
                          candles=data, k=k, k_tp=k_tp, k_sl=k_sl,
                          k_use_tp=k_use_tp, k_use_sl=k_use_sl,
-                         k_ma_filter=k_ma_filter, k_ma_period=k_ma_period,
+                         k_ma1_filter=k_ma1_filter, k_ma1_period=k_ma1_period,
+                         k_ma2_filter=k_ma2_filter, k_ma2_period=k_ma2_period,
+                         k_ma3_filter=k_ma3_filter, k_ma3_period=k_ma3_period,
                          k_volume_filter=k_volume_filter, k_volume_mult=k_volume_mult,
                          total_candles=len(data))
 
@@ -564,9 +585,37 @@ def _build_result(strategy, trades, initial_capital, current_signal, candles=Non
     if candles:
         candle_data = [
             {"t": c["candle_date_time_kst"], "o": c["opening_price"],
-             "h": c["high_price"], "l": c["low_price"], "c": c["trade_price"]}
+             "h": c["high_price"], "l": c["low_price"], "c": c["trade_price"],
+             "v": c.get("candle_acc_trade_volume", 0)}
             for c in candles
         ]
+
+    # 활성화된 MA 필터별 라인 데이터 계산
+    ma_lines = []
+    if candles:
+        closes = [c["trade_price"] for c in candles]
+        # K변동성돌파: 3개 MA 필터
+        for key_f, key_p in [("k_ma1_filter", "k_ma1_period"),
+                              ("k_ma2_filter", "k_ma2_period"),
+                              ("k_ma3_filter", "k_ma3_period")]:
+            if extra.get(key_f):
+                period = extra.get(key_p)
+                if period:
+                    ma_values = [
+                        round(sum(closes[i - period + 1:i + 1]) / period) if i >= period - 1 else None
+                        for i in range(len(closes))
+                    ]
+                    ma_lines.append({"period": period, "data": ma_values})
+        # RSI 전략: 단일 MA 필터
+        if extra.get("rsi_ma_filter"):
+            period = extra.get("rsi_ma_period")
+            if period:
+                ma_values = [
+                    round(sum(closes[i - period + 1:i + 1]) / period) if i >= period - 1 else None
+                    for i in range(len(closes))
+                ]
+                ma_lines.append({"period": period, "data": ma_values})
+
     base = {
         "strategy": strategy,
         "total_trades": 0,
@@ -580,6 +629,7 @@ def _build_result(strategy, trades, initial_capital, current_signal, candles=Non
         "current_signal": current_signal,
         "trades": [],
         "candles": candle_data,
+        "ma_lines": ma_lines,
     }
     base.update(extra)
 

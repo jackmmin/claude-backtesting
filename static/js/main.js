@@ -1,6 +1,6 @@
 let equityChart = null;
 let tvWidget = null;
-let tvBtWidget = null;
+let btLwChart = null;
 
 // ── 차트 높이 드래그 조절 ──────────────────────────────────
 (function initChartResize() {
@@ -224,7 +224,9 @@ function getStrategyDesc(strategy) {
     if (chk("kUseSl")) exit.push(`SL-${val("kSl")}%`);
     if (!exit.length) exit.push("당일종가");
     const filter = [];
-    if (chk("kMaFilter"))     filter.push(`MA${val("kMaPeriod")}봉`);
+    if (chk("kMa1Filter"))    filter.push(`단기MA${val("kMa1Period")}`);
+    if (chk("kMa2Filter"))    filter.push(`중기MA${val("kMa2Period")}`);
+    if (chk("kMa3Filter"))    filter.push(`장기MA${val("kMa3Period")}`);
     if (chk("kVolumeFilter")) filter.push(`볼륨${val("kVolumeMult")}x`);
     return `진입: 시가+K(${k})×전봉변동폭 | 청산: ${exit.join(" · ")} | 필터: ${filter.length ? filter.join(" · ") : "없음"}`;
   }
@@ -338,8 +340,12 @@ async function runBacktest() {
     params += `&k_tp=${parseFloat(document.getElementById("kTp").value) / 100}`;
     params += `&k_use_sl=${document.getElementById("kUseSl").checked}`;
     params += `&k_sl=${-parseFloat(document.getElementById("kSl").value) / 100}`;
-    params += `&k_ma_filter=${document.getElementById("kMaFilter").checked}`;
-    params += `&k_ma_period=${document.getElementById("kMaPeriod").value}`;
+    params += `&k_ma1_filter=${document.getElementById("kMa1Filter").checked}`;
+    params += `&k_ma1_period=${document.getElementById("kMa1Period").value}`;
+    params += `&k_ma2_filter=${document.getElementById("kMa2Filter").checked}`;
+    params += `&k_ma2_period=${document.getElementById("kMa2Period").value}`;
+    params += `&k_ma3_filter=${document.getElementById("kMa3Filter").checked}`;
+    params += `&k_ma3_period=${document.getElementById("kMa3Period").value}`;
     params += `&k_volume_filter=${document.getElementById("kVolumeFilter").checked}`;
     params += `&k_volume_mult=${document.getElementById("kVolumeMult").value}`;
   } else if (strategy === "RSI_OVERSOLD_BOUNCE") {
@@ -457,17 +463,83 @@ function renderCurrentSignal(sig, strategy, fmt) {
   signalDetail.innerHTML = html;
 }
 
-function renderBtCandleChart() {
-  const market   = document.getElementById("marketSelect").value;
-  const interval = document.getElementById("intervalSelect").value;
-  tvBtWidget = createTvWidget("btCandleChart", toTvSymbol(market), interval);
+function renderBtCandleChart(d) {
+  const container = document.getElementById("btCandleChart");
+  container.innerHTML = "";
+  if (btLwChart) { btLwChart.remove(); btLwChart = null; }
+  if (!d || !d.candles || d.candles.length === 0) return;
+
+  btLwChart = LightweightCharts.createChart(container, {
+    layout: { background: { color: "#0d1117" }, textColor: "#8b949e" },
+    grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: "#30363d" },
+    timeScale: { borderColor: "#30363d", timeVisible: true, secondsVisible: false },
+    width: container.clientWidth,
+    height: container.clientHeight || 400,
+  });
+
+  const candleSeries = btLwChart.addCandlestickSeries({
+    upColor: "#3fb950", downColor: "#f85149",
+    borderUpColor: "#3fb950", borderDownColor: "#f85149",
+    wickUpColor: "#3fb950", wickDownColor: "#f85149",
+  });
+
+  // KST 시간을 UTC 기준 Unix 초로 변환 (timezone offset 제거)
+  const toChartTime = t => {
+    const clean = t.replace(/\+09:00$/, "").replace(" ", "T");
+    return Math.floor(new Date(clean + "Z").getTime() / 1000);
+  };
+
+  candleSeries.setData(d.candles.map(c => ({
+    time: toChartTime(c.t), open: c.o, high: c.h, low: c.l, close: c.c,
+  })));
+
+  // 볼륨 히스토그램 (차트 하단 20% 영역에 오버레이)
+  const volumeSeries = btLwChart.addHistogramSeries({
+    priceFormat: { type: "volume" },
+    priceScaleId: "volume",
+  });
+  btLwChart.priceScale("volume").applyOptions({
+    scaleMargins: { top: 0.8, bottom: 0 },
+    visible: false,
+  });
+  volumeSeries.setData(d.candles.map(c => ({
+    time: toChartTime(c.t),
+    value: c.v || 0,
+    color: c.c >= c.o ? "rgba(63,185,80,0.4)" : "rgba(248,81,73,0.4)",
+  })));
+
+  // 활성화된 MA 필터 라인 오버레이 (단기=파랑, 중기=주황, 장기=보라)
+  const MA_COLORS = ["#58a6ff", "#f0883e", "#bc8cff"];
+  (d.ma_lines || []).forEach((ml, idx) => {
+    if (!ml || !ml.data) return;
+    const maSeries = btLwChart.addLineSeries({
+      color: MA_COLORS[idx % MA_COLORS.length],
+      lineWidth: 1.5,
+      title: `MA${ml.period}`,
+      priceLineVisible: false,
+      lastValueVisible: true,
+    });
+    maSeries.setData(
+      d.candles
+        .map((c, i) => ml.data[i] != null ? { time: toChartTime(c.t), value: ml.data[i] } : null)
+        .filter(v => v !== null)
+    );
+  });
+
+  btLwChart.timeScale().fitContent();
+
+  new ResizeObserver(() => {
+    if (btLwChart) btLwChart.applyOptions({ width: container.clientWidth, height: container.clientHeight || 400 });
+  }).observe(container);
 }
 
 function renderBacktest(d) {
   const fmt = n => Number(n).toLocaleString("ko-KR");
   const pct = n => (n * 100).toFixed(2) + "%";
 
-  renderBtCandleChart();
+  renderBtCandleChart(d);
   renderCurrentSignal(d.current_signal, d.strategy, fmt);
 
   const setVal = (id, text, cls) => {
@@ -477,7 +549,7 @@ function renderBacktest(d) {
   };
   setVal("statTrades",      d.total_trades + "건",                                  "neutral");
   setVal("statWinRate",     pct(d.win_rate),                                        d.win_rate >= 0.5 ? "pos" : "neg");
-  setVal("statAvgPnl",      (d.avg_pnl_per_trade >= 0 ? "+" : "") + pct(d.avg_pnl_per_trade), d.avg_pnl_per_trade >= 0 ? "pos" : "neg");
+  // setVal("statAvgPnl",      (d.avg_pnl_per_trade >= 0 ? "+" : "") + pct(d.avg_pnl_per_trade), d.avg_pnl_per_trade >= 0 ? "pos" : "neg");
   setVal("statTotalReturn", (d.total_return >= 0 ? "+" : "") + pct(d.total_return), d.total_return >= 0 ? "pos" : "neg");
   setVal("statInitial",     fmt(d.initial_capital) + " ₩",                         "neutral money");
   setVal("statFinal",       fmt(d.final_value) + " ₩",                             (d.profit_loss >= 0 ? "pos" : "neg") + " money");

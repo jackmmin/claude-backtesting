@@ -14,8 +14,12 @@ def backtesting():
     k_sl = float(request.args.get("k_sl", -0.03))
     k_use_tp = request.args.get("k_use_tp", "true").lower() == "true"
     k_use_sl = request.args.get("k_use_sl", "true").lower() == "true"
-    k_ma_filter = request.args.get("k_ma_filter", "false").lower() == "true"
-    k_ma_period = int(request.args.get("k_ma_period", 20))
+    k_ma1_filter = request.args.get("k_ma1_filter", "false").lower() == "true"
+    k_ma1_period = int(request.args.get("k_ma1_period", 5))
+    k_ma2_filter = request.args.get("k_ma2_filter", "false").lower() == "true"
+    k_ma2_period = int(request.args.get("k_ma2_period", 20))
+    k_ma3_filter = request.args.get("k_ma3_filter", "false").lower() == "true"
+    k_ma3_period = int(request.args.get("k_ma3_period", 60))
     k_volume_filter = request.args.get("k_volume_filter", "false").lower() == "true"
     k_volume_mult = float(request.args.get("k_volume_mult", 1.5))
     rsi_period = int(request.args.get("rsi_period", 14))
@@ -59,7 +63,9 @@ def backtesting():
     return jsonify(run_backtest(
         exchange=exchange, market=market, strategy=strategy,
         k=k, k_tp=k_tp, k_sl=k_sl, k_use_tp=k_use_tp, k_use_sl=k_use_sl,
-        k_ma_filter=k_ma_filter, k_ma_period=k_ma_period,
+        k_ma1_filter=k_ma1_filter, k_ma1_period=k_ma1_period,
+        k_ma2_filter=k_ma2_filter, k_ma2_period=k_ma2_period,
+        k_ma3_filter=k_ma3_filter, k_ma3_period=k_ma3_period,
         k_volume_filter=k_volume_filter, k_volume_mult=k_volume_mult,
         rsi_period=rsi_period, rsi_threshold=rsi_threshold, rsi_exit=rsi_exit,
         rsi_tp=rsi_tp, rsi_sl=rsi_sl,
