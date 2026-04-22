@@ -7,5 +7,6 @@ def get_markets():
     market_codes = ",".join(m["market"] for m in krw_markets)
     tickers = get("/ticker", params={"markets": market_codes})
     tickers.sort(key=lambda t: t["acc_trade_price_24h"], reverse=True)
-    top10_codes = {t["market"] for t in tickers[:10]}
-    return [m for m in krw_markets if m["market"] in top10_codes]
+    top20_tickers = tickers[:20]
+    market_map = {m["market"]: m for m in krw_markets}
+    return [market_map[t["market"]] for t in top20_tickers if t["market"] in market_map]

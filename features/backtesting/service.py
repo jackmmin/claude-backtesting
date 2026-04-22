@@ -1,7 +1,6 @@
 import statistics
 from exchanges import get_exchange
 
-MIN_CANDLES = 30
 FEE_RATE = 0.0005      # 매수/매도 각 0.05% 수수료
 TAKE_PROFIT = 0.05     # 수익률 5% 도달 시 익절 청산
 
@@ -30,8 +29,8 @@ def run_backtest(
     exch = get_exchange(exchange)
     candles = exch.get_candles_bulk(market, count=count, interval=interval)
 
-    if len(candles) < MIN_CANDLES:
-        return {"error": f"데이터 부족: {len(candles)}개 수집 (최소 {MIN_CANDLES}개 필요)"}
+    if len(candles) < 2:
+        return {"error": f"데이터 부족: {len(candles)}개 수집 (최소 2개 필요)"}
 
     data = list(reversed(candles))
 
