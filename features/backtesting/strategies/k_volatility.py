@@ -8,6 +8,7 @@ def run(data, k=0.5, initial_capital=1000000,
         k_ma3_filter=False, k_ma3_period=60,
         k_volume_filter=False, k_volume_mult=1.5):
     trades = []
+    portfolio = initial_capital  # 현재 잔고 추적 (초기비용 이하 시 매수 건너뜀)
     ma_configs = [
         (k_ma1_filter, k_ma1_period),
         (k_ma2_filter, k_ma2_period),
@@ -61,6 +62,7 @@ def run(data, k=0.5, initial_capital=1000000,
 
             sell = raw_sell * (1 - FEE_RATE)
             pnl = (sell - buy_cost) / buy_cost
+            portfolio = round(portfolio * (1 + pnl))  # 잔고 갱신
             trades.append({
                 "date": curr["candle_date_time_kst"][:16],
                 "buy_datetime": curr["candle_date_time_kst"],

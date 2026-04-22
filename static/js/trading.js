@@ -1,5 +1,6 @@
 let ltActive = false;
 let ltStatusTimer = null;
+let _lastEventTs = null;  // 마지막 확인한 스케줄러 이벤트 타임스탬프
 
 function syncLtMarkets() {
   const src = document.getElementById("marketSelect");
@@ -229,6 +230,14 @@ async function refreshStatus() {
         `KRW 가용: <strong style="color:#e6edf3">${Math.floor(d.balance.krw_balance).toLocaleString("ko-KR")} ₩</strong>
         &nbsp; 대기주문: <strong style="color:#8b949e">${Math.floor(d.balance.krw_locked).toLocaleString("ko-KR")} ₩</strong>
         ${d.balance.coin_balance > 0 ? ` &nbsp; 코인: <strong style="color:#e6edf3">${d.balance.coin_balance}</strong>` : ""}`;
+    }
+
+    // 새 스케줄러 이벤트 발생 시 토스트 표시
+    if (d.last_event && d.last_event.timestamp !== _lastEventTs) {
+      _lastEventTs = d.last_event.timestamp;
+      if (d.last_event.type === "position_exists") {
+        showToast("⚠ " + d.last_event.message);
+      }
     }
   } catch (e) {}
 

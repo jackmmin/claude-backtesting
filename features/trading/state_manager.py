@@ -13,6 +13,8 @@ _EMPTY_STATE = {
     "orders": [],
     "trades": [],
     "daily_trade_count": {},
+    "initial_capital": None,
+    "last_event": None,  # 스케줄러 마지막 이벤트 {type, message, timestamp}
 }
 
 
@@ -105,6 +107,30 @@ def get_orders(limit=50):
 
 def get_trades(limit=50):
     return list(reversed(_read_state().get("trades", [])))[:limit]
+
+
+def set_initial_capital(amount: float):
+    state = _read_state()
+    state["initial_capital"] = amount
+    _write_state(state)
+
+
+def get_initial_capital() -> float | None:
+    return _read_state().get("initial_capital")
+
+
+def set_last_event(event_type: str, message: str):
+    state = _read_state()
+    state["last_event"] = {
+        "type": event_type,
+        "message": message,
+        "timestamp": datetime.now().isoformat(),
+    }
+    _write_state(state)
+
+
+def get_last_event() -> dict | None:
+    return _read_state().get("last_event")
 
 
 def get_daily_trade_count(date_str: str) -> int:

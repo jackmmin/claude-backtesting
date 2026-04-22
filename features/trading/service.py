@@ -124,6 +124,9 @@ def check_and_execute(config: TradingConfig) -> dict:
         return _execute_buy(config, date_str, now_str)
 
     if position and position["market"] == config.market:
+        # 포지션 보유 중 매수 신호가 다시 발생하면 이벤트 기록
+        if target["triggered"]:
+            sm.set_last_event("position_exists", "현재 포지션이 존재합니다")
         return _check_exit(config, position, now_str)
 
     return {"status": "waiting", "triggered": target["triggered"], "time": now_str}

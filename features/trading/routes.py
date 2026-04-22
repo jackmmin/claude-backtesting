@@ -164,6 +164,15 @@ def start_trading():
     sm.save_config(saved)
 
     config = _build_config(saved)
+
+    # K변동성돌파 전략: 시작 시점 KRW 잔고를 초기비용으로 저장 (손실 시 재매수 방지)
+    if saved.get("strategy") == "K_VOLATILITY_BREAKOUT":
+        try:
+            balance = trading_service.get_balance(config)
+            sm.set_initial_capital(balance["krw_balance"])
+        except Exception:
+            pass
+
     sch.start_trading(config)
 
     return jsonify({
@@ -245,6 +254,7 @@ def get_status():
         "balance": balance_info,
         "config": saved,
         "has_keys": has_keys(),
+        "last_event": sm.get_last_event(),
     })
 
 
