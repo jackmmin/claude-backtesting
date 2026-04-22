@@ -32,29 +32,83 @@ async function runBacktest({
 
 function kVolatilityBacktest(data, k, initialCapital) {
   const trades = [];
+  let inTrade = false;
+  let entryPrice = null; // 수수료 포함 매수 단가
+  let tpPrice    = null;
+  let entryDate  = null;
+  let entryDatetime = null;
+
   for (let i = 1; i < data.length; i++) {
-    const prev = data[i - 1];
-    const curr = data[i];
-    const prevRange = prev.high_price - prev.low_price;
-    if (prevRange <= 0) continue;
-    const target = curr.opening_price + k * prevRange;
-    if (curr.high_price >= target) {
-      const buyCost = target * (1 + FEE_RATE);   // 매수 수수료 반영
-      const tpPrice = target * (1 + TAKE_PROFIT);
-      // 당일 고가가 TP 가격 이상이면 TP 청산, 아니면 당일 종가 청산
-      const rawSell = curr.high_price >= tpPrice ? tpPrice : curr.trade_price;
-      const sell = rawSell * (1 - FEE_RATE);  // 매도 수수료 반영
-      const pnl = (sell - buyCost) / buyCost;
-      trades.push({ date: curr.candle_date_time_kst.slice(0, 16), buy_datetime: curr.candle_date_time_kst, sell_datetime: curr.candle_date_time_kst.slice(0, 10) + " 23:50:00", buy_price: Math.round(target), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+    const prev    = data[i - 1];
+    const curr    = data[i];
+    const currDate = curr.candle_date_time_kst.slice(0, 10);
+
+    if (inTrade) {
+      const isNewDay = currDate !== entryDate;
+
+      if (curr.high_price >= tpPrice) {
+        // TP 도달 → 즉시 익절
+        const rawSell = tpPrice;
+        const sell    = rawSell * (1 - FEE_RATE);
+        const pnl     = (sell - entryPrice) / entryPrice;
+        trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: curr.candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+        inTrade = false;
+      } else if (isNewDay) {
+        // 당일 종료 → 전 캔들(당일 마지막) 종가로 청산
+        const rawSell = prev.trade_price;
+        const sell    = rawSell * (1 - FEE_RATE);
+        const pnl     = (sell - entryPrice) / entryPrice;
+        trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: prev.candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+        inTrade = false;
+        // 새 날 진입 신호 체크로 fall-through
+      } else {
+        continue; // 당일 보유 중 → 재진입 차단
+      }
+    }
+
+    // 진입 신호 체크 (포지션 없을 때만)
+    if (!inTrade) {
+      const prevRange = prev.high_price - prev.low_price;
+      if (prevRange <= 0) continue;
+      const target = curr.opening_price + k * prevRange;
+      if (curr.high_price >= target) {
+        const buyCost = target * (1 + FEE_RATE);
+        const tp      = target * (1 + TAKE_PROFIT);
+
+        if (curr.high_price >= tp) {
+          // 진입 캔들에서 바로 TP 달성
+          const rawSell = tp;
+          const sell    = rawSell * (1 - FEE_RATE);
+          const pnl     = (sell - buyCost) / buyCost;
+          trades.push({ date: currDate, buy_datetime: curr.candle_date_time_kst, sell_datetime: curr.candle_date_time_kst, buy_price: Math.round(target), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+        } else {
+          // 당일 EOD까지 홀딩
+          entryPrice    = buyCost;
+          tpPrice       = tp;
+          entryDate     = currDate;
+          entryDatetime = curr.candle_date_time_kst;
+          inTrade       = true;
+        }
+      }
     }
   }
+
+  // 데이터 끝까지 포지션 보유 중이면 마지막 캔들 종가로 청산
+  if (inTrade) {
+    const last    = data[data.length - 1];
+    const rawSell = last.trade_price;
+    const sell    = rawSell * (1 - FEE_RATE);
+    const pnl     = (sell - entryPrice) / entryPrice;
+    trades.push({ date: entryDate, buy_datetime: entryDatetime, sell_datetime: last.candle_date_time_kst, buy_price: Math.round(entryPrice / (1 + FEE_RATE)), sell_price: Math.round(rawSell), pnl: Math.round(pnl * 1e6) / 1e6, win: pnl > 0 });
+  }
+
   let currentSignal = null;
   if (data.length >= 2) {
-    const prev = data[data.length - 2];
-    const curr = data[data.length - 1];
+    const prev     = data[data.length - 2];
+    const curr     = data[data.length - 1];
     const prevRange = prev.high_price - prev.low_price;
-    const target = curr.opening_price + k * prevRange;
-    currentSignal = { date: curr.candle_date_time_kst.slice(0, 16), open: curr.opening_price, prev_range: Math.round(prevRange), target_price: Math.round(target), current_price: curr.trade_price, triggered: curr.high_price >= target, in_trade: false, k };
+    const target   = curr.opening_price + k * prevRange;
+    currentSignal  = { date: curr.candle_date_time_kst.slice(0, 16), open: curr.opening_price, prev_range: Math.round(prevRange), target_price: Math.round(target), current_price: curr.trade_price, triggered: curr.high_price >= target, in_trade: inTrade, k };
   }
   return buildResult("K_VOLATILITY_BREAKOUT", trades, initialCapital, currentSignal, data, { k, total_candles: data.length });
 }
@@ -252,6 +306,8 @@ function buildResult(strategy, trades, initialCapital, currentSignal, candles = 
     portfolio = Math.round(portfolio * (1 + t.pnl));
     equityCurve.push({ date: t.date, value: portfolio });
     t.krw_pnl = portfolio - prev;
+    t.entry_amount = prev;
+    t.fee = Math.round(prev * FEE_RATE * 2);
   }
 
   const tradeMarkers = trades

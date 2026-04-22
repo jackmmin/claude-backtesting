@@ -495,6 +495,17 @@ function renderBtCandleChart(d) {
     time: toChartTime(c.t), open: c.o, high: c.h, low: c.l, close: c.c,
   })));
 
+  // 매수/매도 마커
+  if (d.trade_markers && d.trade_markers.length > 0) {
+    const markers = [];
+    for (const m of d.trade_markers) {
+      if (m.buy_datetime)  markers.push({ time: toChartTime(m.buy_datetime),  position: "belowBar", color: "#3fb950", shape: "arrowUp",   text: "B" });
+      if (m.sell_datetime) markers.push({ time: toChartTime(m.sell_datetime), position: "aboveBar", color: m.win ? "#3fb950" : "#f85149", shape: "arrowDown", text: "S" });
+    }
+    markers.sort((a, b) => a.time - b.time);
+    candleSeries.setMarkers(markers);
+  }
+
   // 볼륨 히스토그램 (차트 하단 20% 영역에 오버레이)
   const volumeSeries = btLwChart.addHistogramSeries({
     priceFormat: { type: "volume" },
@@ -637,6 +648,8 @@ function renderBacktest(d) {
       <td style="text-align:left;color:#8b949e">${(t.sell_datetime || "").slice(0,16).replace("T"," ")}</td>
       <td>${fmt(t.buy_price)} ₩</td>
       <td>${fmt(t.sell_price)} ₩</td>
+      <td style="color:#8b949e">${t.entry_amount != null ? fmt(t.entry_amount) + " ₩" : "-"}</td>
+      <td style="color:#8b949e">${t.fee != null ? fmt(t.fee) + " ₩" : "-"}</td>
       <td style="color:${pnlColor}">${pnlText}</td>
       <td>${krwText}</td>
       <td>${statusText}</td>

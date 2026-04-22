@@ -109,17 +109,17 @@
         </div>
         <div class="param-row">
           <span class="param-section-label">청산</span>
-          <label><input type="checkbox" id="kUseTp" checked> TP (%): <input type="number" id="kTp" value="5" min="1" max="30" style="width:60px;"></label>
+          <label><input type="checkbox" id="kUseTp" checked> TP (%): <input type="number" id="kTp" value="7" min="1" max="30" style="width:60px;"></label>
           <div class="param-divider"></div>
-          <label><input type="checkbox" id="kUseSl" checked> SL (%): <input type="number" id="kSl" value="3" min="1" max="20" style="width:60px;"></label>
+          <label><input type="checkbox" id="kUseSl" checked> SL (%): <input type="number" id="kSl" value="5" min="1" max="20" style="width:60px;"></label>
         </div>
         <div class="param-row">
           <span class="param-section-label">MA필터</span>
           <label><input type="checkbox" id="kMa1Filter" checked> 단기 MA 기간: <input type="number" id="kMa1Period" value="20" min="3" max="100" style="width:60px;"></label>
           <div class="param-divider"></div>
-          <label><input type="checkbox" id="kMa2Filter" checked> 중기 MA 기간: <input type="number" id="kMa2Period" value="60" min="5" max="200" style="width:60px;"></label>
+          <label><input type="checkbox" id="kMa2Filter" checked> 중기 MA 기간: <input type="number" id="kMa2Period" value="40" min="5" max="200" style="width:60px;"></label>
           <div class="param-divider"></div>
-          <label><input type="checkbox" id="kMa3Filter" checked> 장기 MA 기간: <input type="number" id="kMa3Period" value="120" min="10" max="500" style="width:60px;"></label>
+          <label><input type="checkbox" id="kMa3Filter"> 장기 MA 기간: <input type="number" id="kMa3Period" value="80" min="10" max="500" style="width:60px;"></label>
         </div>
         <div class="param-row">
           <span class="param-section-label">필터</span>
@@ -269,6 +269,8 @@
               <th style="text-align:left">청산일시</th>
               <th>진입가</th>
               <th>청산가</th>
+              <th>진입금액</th>
+              <th>수수료</th>
               <th>수익률</th>
               <th>손익 (₩)</th>
               <th>결과</th>
