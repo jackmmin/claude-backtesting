@@ -45,6 +45,22 @@ async function refreshKeyStatus() {
   } catch (e) {}
 }
 
+// 연결테스트 결과에 따라 키 상태 UI 업데이트 (체크/x)
+function _applyKeyStatus(key_status) {
+  if (!key_status) return;
+  const map = [
+    { id: "ltKeyStatusBalance",    ok: key_status.balance },
+    { id: "ltKeyStatusOrderQuery", ok: key_status.order_query },
+    { id: "ltKeyStatusOrder",      ok: key_status.order },
+  ];
+  map.forEach(({ id, ok }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = ok ? "✓" : "✗";
+    el.style.color  = ok ? "#3fb950" : "#f85149";
+  });
+}
+
 async function testConnection() {
   const statusEl = document.getElementById("ltConnStatus");
   statusEl.textContent = "연결 중..."; statusEl.style.color = "#8b949e";
@@ -60,6 +76,7 @@ async function testConnection() {
       }),
     });
     const d = await res.json();
+    _applyKeyStatus(d.key_status);
     if (res.ok) {
       statusEl.textContent = d.message; statusEl.style.color = "#3fb950";
       refreshBalance();

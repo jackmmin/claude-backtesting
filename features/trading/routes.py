@@ -28,28 +28,35 @@ def _build_config(settings: dict) -> TradingConfig:
     )
 
 
-def _test_all_keys(keys: dict) -> tuple[float | None, str | None]:
-    """3종 API 키 연결 테스트. 성공 시 (KRW잔액, None), 실패 시 (None, 오류메시지)"""
+def _test_all_keys(keys: dict) -> tuple[float | None, str | None, dict]:
+    """3종 API 키 연결 테스트. 성공 시 (KRW잔액, None, key_status), 실패 시 (None, 오류메시지, key_status)
+    key_status: 각 키별 연결 성공 여부 {"balance": bool, "order_query": bool, "order": bool}
+    """
+    key_status = {"balance": False, "order_query": False, "order": False}
     try:
         accounts = upbit.get_accounts(keys["balance_access_key"], keys["balance_secret_key"])
+        key_status["balance"] = True
     except Exception as e:
-        return None, f"자산조회 API 연결 실패: {e}"
+        return None, f"자산조회 API 연결 실패: {e}", key_status
     try:
         upbit.get_orders(keys["order_query_access_key"], keys["order_query_secret_key"], limit=1)
+        key_status["order_query"] = True
     except Exception as e:
-        return None, f"주문조회 API 연결 실패: {e}"
+        return None, f"주문조회 API 연결 실패: {e}", key_status
     # 주문하기는 실제 주문 없이 인증만 검증 (최소금액 오류는 인증 성공으로 간주)
     try:
         upbit.post_order(keys["order_access_key"], keys["order_secret_key"],
                          market="KRW-BTC", side="bid", ord_type="price", price=1)
+        key_status["order"] = True
     except upbit.UpbitAPIError as e:
         if e.status_code == 401:
-            return None, f"주문하기 API 연결 실패: {e}"
+            return None, f"주문하기 API 연결 실패: {e}", key_status
+        key_status["order"] = True  # 401 아닌 오류(최소금액 등)는 인증 성공
     except Exception as e:
-        return None, f"주문하기 API 연결 실패: {e}"
+        return None, f"주문하기 API 연결 실패: {e}", key_status
 
     krw = next((a for a in accounts if a["currency"] == "KRW"), None)
-    return float(krw["balance"]) if krw else 0, None
+    return float(krw["balance"]) if krw else 0, None, key_status
 
 
 @trading_bp.route("/trading/keys", methods=["GET"])
@@ -97,9 +104,9 @@ def save_config():
     else:
         return jsonify({"error": "API 키 3종(자산조회 / 주문조회 / 주문하기)을 모두 입력해주세요"}), 400
 
-    balance, err = _test_all_keys(keys)
+    balance, err, key_status = _test_all_keys(keys)
     if err:
-        return jsonify({"error": err}), 401
+        return jsonify({"error": err, "key_status": key_status}), 401
 
     settings = {
         "market": data.get("market", "KRW-BTC"),
@@ -115,6 +122,7 @@ def save_config():
         "success": True,
         "krw_balance": balance,
         "message": f"연결 성공! KRW 잔액: {balance:,.0f}원",
+        "key_status": key_status,
     })
 
 
