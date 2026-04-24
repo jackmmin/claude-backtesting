@@ -1,5 +1,3 @@
-import statistics
-
 FEE_RATE = 0.0005  # 매수/매도 각 0.05% 수수료
 
 
@@ -75,6 +73,38 @@ def rsi(closes, period=14):
     return 100 - (100 / (1 + avg_gain / avg_loss))
 
 
+def _calc_rsi_series(candles, period):
+    """전체 캔들에 대해 RSI 시계열 계산. 워밍업 구간은 None."""
+    closes = [c["trade_price"] for c in candles]
+    result = []
+    for i in range(len(closes)):
+        r = rsi(closes[:i + 1], period)
+        result.append(round(r, 2) if r is not None else None)
+    return result
+
+
+def _find_divergence_points(candles, rsi_series, lookback=30):
+    """
+    백테스팅 전 구간에서 다이버전스가 탐지된 캔들 인덱스 목록을 반환.
+    각 인덱스는 rsi_divergence_trail 전략과 동일한 방식으로 탐색.
+    """
+    closes = [c["trade_price"] for c in candles]
+    points = []
+    rsi_vals = [v if v is not None else -1.0 for v in rsi_series]
+    n = len(closes)
+    for i in range(lookback, n):
+        diverged, _, _ = detect_bullish_divergence(
+            closes[:i + 1], rsi_vals[:i + 1], lookback=lookback
+        )
+        if diverged:
+            # 연속 중복 방지: 직전 포인트와 3봉 이내면 스킵
+            if points and i - points[-1] < 3:
+                points[-1] = i
+            else:
+                points.append(i)
+    return points
+
+
 def build_result(strategy, trades, initial_capital, current_signal, candles=None, open_trade=None, **extra):
     candle_data = []
     if candles:
@@ -111,6 +141,23 @@ def build_result(strategy, trades, initial_capital, current_signal, candles=None
                 ]
                 ma_lines.append({"period": period, "data": ma_values})
 
+    # RSI 시계열 및 다이버전스 저점 계산 (RSI 관련 전략에서만)
+    rsi_line = []
+    divergence_points = []
+    rsi_period_for_line = None
+    if candles:
+        if strategy == "RSI_DIVERGENCE_TRAIL":
+            rsi_period_for_line = extra.get("rdi_rsi_period", 14)
+            lookback = extra.get("rdi_lookback", 30)
+        elif strategy == "RSI_OVERSOLD_BOUNCE":
+            rsi_period_for_line = extra.get("rsi_period", 14)
+
+        if rsi_period_for_line:
+            rsi_line = _calc_rsi_series(candles, rsi_period_for_line)
+            # RSI_DIVERGENCE_TRAIL 전략에서는 다이버전스 저점도 표시
+            if strategy == "RSI_DIVERGENCE_TRAIL":
+                divergence_points = _find_divergence_points(candles, rsi_line, lookback=lookback)
+
     base = {
         "strategy": strategy,
         "total_trades": 0,
@@ -125,6 +172,9 @@ def build_result(strategy, trades, initial_capital, current_signal, candles=None
         "trades": [],
         "candles": candle_data,
         "ma_lines": ma_lines,
+        "rsi_line": rsi_line,
+        "divergence_points": divergence_points,
+        "rsi_period": rsi_period_for_line,
     }
     base.update(extra)
 

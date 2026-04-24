@@ -1,4 +1,5 @@
 let equityChart = null;
+let btRsiLwChart = null;
 
 function renderCurrentSignal(sig, strategy, fmt) {
   const signalBox    = document.getElementById("signalBox");
@@ -146,11 +147,101 @@ function renderBtCandleChart(d) {
   }).observe(container);
 }
 
+function renderBtRsiChart(d) {
+  const wrap      = document.getElementById("btRsiChartWrap");
+  const container = document.getElementById("btRsiChart");
+  if (btRsiLwChart) { btRsiLwChart.remove(); btRsiLwChart = null; }
+
+  // RSI 데이터가 없거나 전략이 RSI 무관이면 숨김
+  if (!d.rsi_line || d.rsi_line.length === 0) {
+    wrap.style.display = "none";
+    return;
+  }
+  wrap.style.display = "block";
+  container.innerHTML = "";
+
+  const toChartTime = t => {
+    const clean = t.replace(/\+09:00$/, "").replace(" ", "T");
+    return Math.floor(new Date(clean + "Z").getTime() / 1000);
+  };
+
+  btRsiLwChart = LightweightCharts.createChart(container, {
+    layout: { background: { color: "#0d1117" }, textColor: "#8b949e" },
+    grid: { vertLines: { color: "#21262d" }, horzLines: { color: "#21262d" } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: "#30363d", scaleMargins: { top: 0.1, bottom: 0.1 } },
+    timeScale: { borderColor: "#30363d", timeVisible: true, secondsVisible: false },
+    width: container.clientWidth,
+    height: container.clientHeight || 160,
+  });
+
+  // RSI 라인
+  const rsiSeries = btRsiLwChart.addLineSeries({
+    color: "#c084fc",
+    lineWidth: 1.5,
+    title: `RSI(${d.rsi_period || 14})`,
+    priceLineVisible: false,
+    lastValueVisible: true,
+  });
+  const rsiData = d.candles
+    .map((c, i) => d.rsi_line[i] != null ? { time: toChartTime(c.t), value: d.rsi_line[i] } : null)
+    .filter(v => v !== null);
+  rsiSeries.setData(rsiData);
+
+  // 과매도(30) / 과매수(70) 기준선
+  const makeBaseline = (val, color) => {
+    const s = btRsiLwChart.addLineSeries({
+      color, lineWidth: 1, lineStyle: 2,
+      priceLineVisible: false, lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    });
+    s.setData(rsiData.map(p => ({ time: p.time, value: val })));
+  };
+  makeBaseline(70, "rgba(248,81,73,0.5)");
+  makeBaseline(30, "rgba(63,185,80,0.5)");
+  makeBaseline(50, "rgba(139,148,158,0.3)");
+
+  // RSI_DIVERGENCE_TRAIL: 다이버전스 저점 마커 표시
+  if (d.strategy === "RSI_DIVERGENCE_TRAIL" && d.divergence_points && d.divergence_points.length > 0) {
+    const divMarkers = [];
+    for (const idx of d.divergence_points) {
+      if (!d.candles[idx] || d.rsi_line[idx] == null) continue;
+      divMarkers.push({
+        time: toChartTime(d.candles[idx].t),
+        position: "belowBar",
+        color: "#f0883e",
+        shape: "circle",
+        text: "D",
+        size: 1,
+      });
+    }
+    divMarkers.sort((a, b) => a.time - b.time);
+    rsiSeries.setMarkers(divMarkers);
+  }
+
+  btRsiLwChart.timeScale().fitContent();
+
+  // 캔들 차트와 시간축 동기화
+  if (btLwChart) {
+    btLwChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (range && btRsiLwChart) btRsiLwChart.timeScale().setVisibleLogicalRange(range);
+    });
+    btRsiLwChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (range && btLwChart) btLwChart.timeScale().setVisibleLogicalRange(range);
+    });
+  }
+
+  new ResizeObserver(() => {
+    if (btRsiLwChart) btRsiLwChart.applyOptions({ width: container.clientWidth, height: container.clientHeight || 160 });
+  }).observe(container);
+}
+
 function renderBacktest(d) {
   const fmt = n => Number(n).toLocaleString("ko-KR");
   const pct = n => (n * 100).toFixed(2) + "%";
 
   renderBtCandleChart(d);
+  renderBtRsiChart(d);
   renderCurrentSignal(d.current_signal, d.strategy, fmt);
 
   const setVal = (id, text, cls) => {
