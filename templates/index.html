@@ -78,6 +78,7 @@
         <select id="strategySelect" onchange="onStrategyChange()">
           <option value="K_VOLATILITY_BREAKOUT">K변동성 돌파</option>
           <option value="TRAILING_BREAKOUT">트레일링 스탑 돌파</option>
+          <option value="RSI_DIVERGENCE_TRAIL">RSI 다이버전스 + 트레일링</option>
           <option value="RSI_OVERSOLD_BOUNCE">RSI 과매도 반등</option>
           <option value="MA_GOLDEN_CROSS">MA 골든크로스</option>
           <option value="BOLLINGER_BOUNCE">볼린저밴드 반등</option>
@@ -149,6 +150,26 @@
         <div class="param-row">
           <span class="param-section-label">필터</span>
           <label><input type="checkbox" id="tbVolumeFilter" checked> 볼륨 필터  배수: <input type="number" id="tbVolumeMult" value="1.5" min="0.5" max="10" step="0.1" style="width:60px;">x</label>
+        </div>
+      </div>
+
+      <!-- RSI 다이버전스 + 거래량 + 트레일링 전용 -->
+      <div id="ctrl-rdi" class="param-panel">
+        <div class="param-row">
+          <span class="param-section-label">진입</span>
+          <label>RSI 기간: <input type="number" id="rdiRsiPeriod" value="14" min="5" max="50" style="width:58px;"></label>
+          <label>다이버전스 탐색봉: <input type="number" id="rdiLookback" value="30" min="10" max="100" style="width:58px;"></label>
+          <label>볼륨 배수: <input type="number" id="rdiVolMult" value="1.5" min="0.5" max="10" step="0.1" style="width:58px;">x</label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">청산</span>
+          <label>트레일링 갭 (%): <input type="number" id="rdiTrailPct" value="3" min="0.5" max="15" step="0.5" style="width:60px;"></label>
+          <div class="param-divider"></div>
+          <label>고정 SL (%): <input type="number" id="rdiSlPct" value="3" min="0.5" max="10" step="0.5" style="width:60px;"></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">필터</span>
+          <label><input type="checkbox" id="rdiMaFilter"> 장기 MA 필터  기간: <input type="number" id="rdiMaPeriod" value="60" min="10" max="200" style="width:60px;"></label>
         </div>
       </div>
 
@@ -349,6 +370,7 @@
         <select class="lt-input" id="ltStrategy" style="max-width:240px;">
           <option value="K_VOLATILITY_BREAKOUT">K변동성 돌파</option>
           <option value="TRAILING_BREAKOUT">트레일링 스탑 돌파</option>
+          <option value="RSI_DIVERGENCE_TRAIL">RSI 다이버전스 + 트레일링</option>
           <option value="RSI_OVERSOLD_BOUNCE">RSI 과매도 반등</option>
           <option value="MA_GOLDEN_CROSS">MA 골든크로스</option>
           <option value="BOLLINGER_BOUNCE">볼린저밴드 반등</option>

@@ -64,6 +64,13 @@ def backtesting():
     bb_volume_filter = request.args.get("bb_volume_filter", "false").lower() == "true"
     bb_volume_mult = float(request.args.get("bb_volume_mult", 1.5))
     bb_max_hold_bars = int(request.args.get("bb_max_hold_bars", 0))
+    rdi_rsi_period = int(request.args.get("rdi_rsi_period", 14))
+    rdi_lookback   = int(request.args.get("rdi_lookback", 30))
+    rdi_vol_mult   = float(request.args.get("rdi_vol_mult", 1.5))
+    rdi_trail_pct  = float(request.args.get("rdi_trail_pct", 0.03))
+    rdi_sl_pct     = float(request.args.get("rdi_sl_pct", -0.03))
+    rdi_ma_filter  = request.args.get("rdi_ma_filter", "false").lower() == "true"
+    rdi_ma_period  = int(request.args.get("rdi_ma_period", 60))
     interval = request.args.get("interval", "days")
     count = int(request.args.get("count", 200))
     initial_capital = int(request.args.get("initial_capital", 1000000))
@@ -95,5 +102,8 @@ def backtesting():
         bb_use_tp=bb_use_tp, bb_tp=bb_tp, bb_use_sl=bb_use_sl, bb_sl=bb_sl,
         bb_use_middle_exit=bb_use_middle_exit,
         bb_volume_filter=bb_volume_filter, bb_volume_mult=bb_volume_mult, bb_max_hold_bars=bb_max_hold_bars,
+        rdi_rsi_period=rdi_rsi_period, rdi_lookback=rdi_lookback, rdi_vol_mult=rdi_vol_mult,
+        rdi_trail_pct=rdi_trail_pct, rdi_sl_pct=rdi_sl_pct,
+        rdi_ma_filter=rdi_ma_filter, rdi_ma_period=rdi_ma_period,
         interval=interval, count=count, initial_capital=initial_capital,
     ))

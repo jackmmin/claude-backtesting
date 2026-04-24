@@ -1,5 +1,5 @@
 from exchanges import get_exchange
-from .strategies import k_volatility, rsi_oversold, ma_golden_cross, bollinger_bounce, trailing_breakout
+from .strategies import k_volatility, rsi_oversold, ma_golden_cross, bollinger_bounce, trailing_breakout, rsi_divergence_trail
 
 
 def run_backtest(
@@ -27,6 +27,10 @@ def run_backtest(
     bb_period=20, bb_std=2.0,
     bb_use_tp=True, bb_tp=0.05, bb_use_sl=False, bb_sl=-0.03,
     bb_use_middle_exit=True, bb_volume_filter=False, bb_volume_mult=1.5, bb_max_hold_bars=0,
+    # RSI 다이버전스 + 거래량 + 트레일링 복합 전략
+    rdi_rsi_period=14, rdi_lookback=30, rdi_vol_mult=1.5,
+    rdi_trail_pct=0.03, rdi_sl_pct=-0.03,
+    rdi_ma_filter=False, rdi_ma_period=60,
     interval="days", count=200, initial_capital=1000000,
 ):
     exch = get_exchange(exchange)
@@ -71,4 +75,11 @@ def run_backtest(
                                     bb_use_middle_exit=bb_use_middle_exit,
                                     bb_volume_filter=bb_volume_filter, bb_volume_mult=bb_volume_mult,
                                     bb_max_hold_bars=bb_max_hold_bars)
+    if strategy == "RSI_DIVERGENCE_TRAIL":
+        return rsi_divergence_trail.run(
+            data, rsi_period=rdi_rsi_period, lookback=rdi_lookback,
+            vol_mult=rdi_vol_mult, trail_pct=rdi_trail_pct, sl_pct=rdi_sl_pct,
+            ma_filter=rdi_ma_filter, ma_period=rdi_ma_period,
+            initial_capital=initial_capital,
+        )
     return {"error": f"알 수 없는 전략: {strategy}"}

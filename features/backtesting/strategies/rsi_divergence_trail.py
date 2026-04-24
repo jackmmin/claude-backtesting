@@ -1,0 +1,171 @@
+from .utils import FEE_RATE, rsi, sma, detect_bullish_divergence, build_result
+
+
+def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
+        trail_pct=0.03, sl_pct=-0.03,
+        ma_filter=False, ma_period=60,
+        initial_capital=1000000):
+    """
+    RSI 상승 다이버전스 + 거래량 급증 + 트레일링 스탑 복합 전략
+
+    [진입 조건]
+    1. RSI 상승 다이버전스: 최근 lookback 봉 내 가격 신저점 + RSI는 전 저점 대비 상승
+    2. 거래량 급증: 현재 봉 거래량이 최근 20봉 평균의 vol_mult배 이상
+    3. (옵션) MA 필터: 현재가가 장기 MA 위에 있을 때만 진입
+
+    [청산 조건]
+    - 트레일링 스탑: 진입 후 고점 대비 trail_pct% 하락 시 청산 (수익 극대화)
+    - 고정 손절: 진입가 대비 sl_pct% 하락 시 즉시 청산 (손실 제한)
+    """
+    trades      = []
+    portfolio   = initial_capital
+    in_trade    = False
+    entry_price = None
+    entry_date  = None
+    entry_dt    = None
+    peak_price  = None   # 진입 후 최고가 (트레일링 기준점)
+
+    # 최소 데이터: rsi_period + lookback + 여유
+    min_bars = rsi_period + lookback + 5
+
+    for i in range(min_bars, len(data)):
+        closes = [c["trade_price"] for c in data[:i + 1]]
+
+        # RSI 시계열 계산 (lookback+rsi_period개만)
+        rsi_series = []
+        for j in range(max(0, i - lookback - rsi_period * 2), i + 1):
+            sub = closes[:j + 1]
+            r   = rsi(sub, rsi_period)
+            rsi_series.append(r if r is not None else 50.0)
+
+        curr  = data[i]
+        curr_price = curr["trade_price"]
+
+        if in_trade:
+            # ── 보유 중: 트레일링 & 손절 관리 ──
+            high = curr["high_price"]
+            low  = curr["low_price"]
+
+            # 고점 갱신
+            if high > peak_price:
+                peak_price = high
+
+            sl_price    = entry_price * (1 + sl_pct)
+            trail_price = peak_price  * (1 - trail_pct)
+
+            raw_sell = None
+            if low <= sl_price:
+                # 손절 우선 (손실 제한)
+                raw_sell = sl_price
+            elif low <= trail_price and trail_price > entry_price:
+                # 트레일링 스탑 (수익 구간에서만 작동)
+                raw_sell = trail_price
+
+            if raw_sell is not None:
+                sell_price = raw_sell * (1 - FEE_RATE)
+                pnl = (sell_price - entry_price * (1 + FEE_RATE)) / (entry_price * (1 + FEE_RATE))
+                portfolio = round(portfolio * (1 + pnl))
+                trades.append({
+                    "date":          entry_date,
+                    "buy_datetime":  entry_dt,
+                    "sell_datetime": curr["candle_date_time_kst"],
+                    "buy_price":     round(entry_price),
+                    "sell_price":    round(raw_sell),
+                    "pnl":           round(pnl, 6),
+                    "win":           pnl > 0,
+                })
+                in_trade = False
+
+        else:
+            # ── 진입 탐색: 다이버전스 + 거래량 ──
+
+            # RSI 다이버전스 탐지
+            diverged, rsi_prev, rsi_curr = detect_bullish_divergence(
+                closes, rsi_series, lookback=lookback
+            )
+            if not diverged:
+                continue
+
+            # 거래량 급증 필터
+            vol_window = data[max(0, i - 20):i]
+            vols       = [c.get("candle_acc_trade_volume", 0) for c in vol_window]
+            avg_vol    = sum(vols) / len(vol_window) if vol_window else 0
+            curr_vol   = curr.get("candle_acc_trade_volume", 0)
+            if avg_vol > 0 and curr_vol < avg_vol * vol_mult:
+                continue
+
+            # MA 추세 필터 (옵션)
+            if ma_filter:
+                ma_val = sma(closes, ma_period)
+                if ma_val is not None and curr_price < ma_val:
+                    continue
+
+            # 다음 봉 시가로 진입 (슬리피지 없이 보수적 처리)
+            if i + 1 >= len(data):
+                continue
+            next_open   = data[i + 1]["opening_price"]
+            entry_price = next_open
+            entry_date  = curr["candle_date_time_kst"][:10]
+            entry_dt    = data[i + 1]["candle_date_time_kst"]
+            peak_price  = next_open
+            in_trade    = True
+
+    # 미청산 포지션 처리 (현재가 기준 미실현 손익)
+    open_trade = None
+    if in_trade and entry_price is not None:
+        last = data[-1]
+        curr_price = last["trade_price"]
+        if last["high_price"] > peak_price:
+            peak_price = last["high_price"]
+        pnl_unreal = (curr_price * (1 - FEE_RATE) - entry_price * (1 + FEE_RATE)) / (entry_price * (1 + FEE_RATE))
+        open_trade = {
+            "date":          entry_date,
+            "buy_datetime":  entry_dt,
+            "sell_datetime": "",
+            "buy_price":     round(entry_price),
+            "sell_price":    round(curr_price),
+            "pnl":           round(pnl_unreal, 6),
+            "win":           pnl_unreal > 0,
+            "open":          True,
+        }
+
+    # 현재 신호 상태 계산
+    closes_all  = [c["trade_price"] for c in data]
+    rsi_all     = []
+    for j in range(len(data)):
+        sub = closes_all[:j + 1]
+        r   = rsi(sub, rsi_period)
+        rsi_all.append(r if r is not None else 50.0)
+
+    diverged_now, _, _ = detect_bullish_divergence(closes_all, rsi_all, lookback=lookback)
+    vol_window_now = data[max(0, len(data) - 21):len(data) - 1]
+    vols_now       = [c.get("candle_acc_trade_volume", 0) for c in vol_window_now]
+    avg_vol_now    = sum(vols_now) / len(vols_now) if vols_now else 0
+    last_vol       = data[-1].get("candle_acc_trade_volume", 0)
+    vol_ok         = avg_vol_now > 0 and last_vol >= avg_vol_now * vol_mult
+
+    current_signal = {
+        "date":            data[-1]["candle_date_time_kst"][:16],
+        "rsi_value":       round(rsi_all[-1], 2) if rsi_all else None,
+        "divergence":      diverged_now,
+        "vol_ratio":       round(last_vol / avg_vol_now, 2) if avg_vol_now > 0 else 0,
+        "vol_ok":          vol_ok,
+        "triggered":       diverged_now and vol_ok,
+        "in_trade":        in_trade,
+        "trail_pct":       trail_pct * 100,
+        "sl_pct":          abs(sl_pct) * 100,
+    }
+
+    return build_result(
+        "RSI_DIVERGENCE_TRAIL", trades, initial_capital, current_signal,
+        open_trade=open_trade,
+        candles=data,
+        rdi_rsi_period=rsi_period,
+        rdi_lookback=lookback,
+        rdi_vol_mult=vol_mult,
+        rdi_trail_pct=trail_pct,
+        rdi_sl_pct=sl_pct,
+        rdi_ma_filter=ma_filter,
+        rdi_ma_period=ma_period,
+        total_candles=len(data),
+    )

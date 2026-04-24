@@ -2,6 +2,7 @@ const STRATEGY_NAMES = {
   K_VOLATILITY_BREAKOUT: "K변동성 돌파",
   TRAILING_BREAKOUT:     "트레일링 스탑 돌파",
   RSI_OVERSOLD_BOUNCE:   "RSI 과매도 반등",
+  RSI_DIVERGENCE_TRAIL:  "RSI 다이버전스 + 트레일링",
   MA_GOLDEN_CROSS:       "MA 골든크로스",
   BOLLINGER_BOUNCE:      "볼린저밴드 반등",
 };
@@ -9,6 +10,7 @@ const STRATEGY_NAMES = {
 const STRATEGY_OVERVIEW = {
   K_VOLATILITY_BREAKOUT: "전일 변동폭의 K배를 시가에 더한 가격을 돌파하면 매수. 추세 추종형으로 변동성이 클수록 유리하며, TP/SL로 수익과 손실을 제한합니다.",
   RSI_OVERSOLD_BOUNCE:   "RSI가 과매도 구간에 진입할 때 반등을 노리는 평균 회귀 전략. 횡보장에서 유효하며 추세장에서는 손실이 커질 수 있습니다.",
+  RSI_DIVERGENCE_TRAIL:  "가격은 신저점인데 RSI는 오히려 올라오는 상승 다이버전스 + 거래량 급증 시 진입. 추세 전환 초입을 포착하며 트레일링 스탑으로 수익을 극대화합니다.",
   MA_GOLDEN_CROSS:       "단기 이동평균이 장기 이동평균을 상향 돌파(골든크로스)할 때 매수. 중·장기 추세 추종 전략으로 추세가 뚜렷한 시장에서 강합니다.",
   BOLLINGER_BOUNCE:      "볼린저밴드 하단을 이탈한 가격이 밴드 안으로 복귀할 때 매수. 과매도 반등을 노리는 평균 회귀 전략입니다.",
   TRAILING_BREAKOUT:     "변동성 돌파로 진입 후 즉시 타이트한 손절로 손실을 제한하고, 고점 대비 일정 % 하락 시 청산(트레일링)으로 수익을 극대화. 손익비 중심 단기 전략.",
@@ -36,6 +38,16 @@ function getStrategyDesc(strategy) {
     if (chk("kMa3Filter"))    filter.push(`장기MA${val("kMa3Period")}`);
     if (chk("kVolumeFilter")) filter.push(`볼륨${val("kVolumeMult")}x`);
     return `진입: 시가+K(${k})×전봉변동폭 | 청산: ${exit.join(" · ")} | 필터: ${filter.length ? filter.join(" · ") : "없음"}`;
+  }
+  if (strategy === "RSI_DIVERGENCE_TRAIL") {
+    const period  = val("rdiRsiPeriod");
+    const lookback = val("rdiLookback");
+    const vol     = val("rdiVolMult");
+    const trail   = val("rdiTrailPct");
+    const sl      = val("rdiSlPct");
+    const filter  = [];
+    if (chk("rdiMaFilter")) filter.push(`MA${val("rdiMaPeriod")}봉`);
+    return `진입: RSI${period} 다이버전스 + 거래량${vol}x (탐색${lookback}봉) | 청산: 트레일${trail}% · SL-${sl}% | 필터: ${filter.length ? filter.join(" · ") : "없음"}`;
   }
   if (strategy === "RSI_OVERSOLD_BOUNCE") {
     const period = val("rsiPeriod"), thr = val("rsiThreshold");
@@ -99,6 +111,7 @@ function onStrategyChange() {
   const map = {
     K_VOLATILITY_BREAKOUT: "ctrl-k",
     RSI_OVERSOLD_BOUNCE:   "ctrl-rsi",
+    RSI_DIVERGENCE_TRAIL:  "ctrl-rdi",
     MA_GOLDEN_CROSS:       "ctrl-ma",
     BOLLINGER_BOUNCE:      "ctrl-bb",
     TRAILING_BREAKOUT:     "ctrl-tb",
@@ -151,7 +164,15 @@ async function runBacktest() {
   const initialCapital = getCapitalValue();
 
   let params = `market=${market}&strategy=${strategy}&interval=${interval}&count=${count}&initial_capital=${initialCapital}`;
-  if (strategy === "TRAILING_BREAKOUT") {
+  if (strategy === "RSI_DIVERGENCE_TRAIL") {
+    params += `&rdi_rsi_period=${document.getElementById("rdiRsiPeriod").value}`;
+    params += `&rdi_lookback=${document.getElementById("rdiLookback").value}`;
+    params += `&rdi_vol_mult=${document.getElementById("rdiVolMult").value}`;
+    params += `&rdi_trail_pct=${parseFloat(document.getElementById("rdiTrailPct").value) / 100}`;
+    params += `&rdi_sl_pct=${-parseFloat(document.getElementById("rdiSlPct").value) / 100}`;
+    params += `&rdi_ma_filter=${document.getElementById("rdiMaFilter").checked}`;
+    params += `&rdi_ma_period=${document.getElementById("rdiMaPeriod").value}`;
+  } else if (strategy === "TRAILING_BREAKOUT") {
     params += `&k=${parseFloat(document.getElementById("tbKSlider").value)}`;
     params += `&tb_sl=${-parseFloat(document.getElementById("tbSl").value) / 100}`;
     params += `&tb_trail=${parseFloat(document.getElementById("tbTrail").value) / 100}`;
