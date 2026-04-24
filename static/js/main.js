@@ -33,6 +33,7 @@ document.getElementById("marketSelect").addEventListener("change", () => {
 document.getElementById("chartIntervalSelect").addEventListener("change", loadTvChart);
 document.getElementById("marketSelect").addEventListener("change", syncLtMarkets);
 document.getElementById("btRunBtn").addEventListener("click", runBacktest);
+document.getElementById("ltStrategy").addEventListener("change", updateLtStrategyDesc);
 
 // 실시간 매매 탭 클릭 시 상태 및 마켓 동기화
 document.querySelector(".tabs").addEventListener("click", e => {
@@ -46,6 +47,7 @@ document.querySelector(".tabs").addEventListener("click", e => {
 // ── 초기 로드 ────────────────────────────────────────────
 loadMarkets();
 updateStrategyDesc();
+updateLtStrategyDesc();
 refreshKeyStatus();
 
 setInterval(() => {

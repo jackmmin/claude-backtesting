@@ -1,11 +1,15 @@
 from exchanges import get_exchange
-from .strategies import k_volatility, rsi_oversold, ma_golden_cross, bollinger_bounce
+from .strategies import k_volatility, rsi_oversold, ma_golden_cross, bollinger_bounce, trailing_breakout
 
 
 def run_backtest(
     exchange="upbit", market="KRW-BTC",
     strategy="K_VOLATILITY_BREAKOUT",
     k=0.5,
+    tb_sl=-0.02, tb_trail=0.03,
+    tb_ma1_filter=False, tb_ma1_period=20,
+    tb_ma2_filter=False, tb_ma2_period=60,
+    tb_volume_filter=False, tb_volume_mult=1.5,
     k_tp=0.05, k_sl=-0.03, k_use_tp=True, k_use_sl=True,
     k_ma1_filter=False, k_ma1_period=5,
     k_ma2_filter=False, k_ma2_period=20,
@@ -33,6 +37,12 @@ def run_backtest(
 
     data = list(reversed(candles))
 
+    if strategy == "TRAILING_BREAKOUT":
+        return trailing_breakout.run(data, k=k, initial_capital=initial_capital,
+                                     tb_sl=tb_sl, tb_trail=tb_trail,
+                                     tb_ma1_filter=tb_ma1_filter, tb_ma1_period=tb_ma1_period,
+                                     tb_ma2_filter=tb_ma2_filter, tb_ma2_period=tb_ma2_period,
+                                     tb_volume_filter=tb_volume_filter, tb_volume_mult=tb_volume_mult)
     if strategy == "K_VOLATILITY_BREAKOUT":
         return k_volatility.run(data, k=k, initial_capital=initial_capital,
                                 k_tp=k_tp, k_sl=k_sl, k_use_tp=k_use_tp, k_use_sl=k_use_sl,

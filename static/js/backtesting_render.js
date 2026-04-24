@@ -44,6 +44,14 @@ function renderCurrentSignal(sig, strategy, fmt) {
       <div class="signal-row"><span class="signal-label">단기 MA (${sig.fast_period})</span><span class="signal-value">${sig.ma_fast !== null ? fmt(sig.ma_fast) + " ₩" : "-"}</span></div>
       <div class="signal-row"><span class="signal-label">장기 MA (${sig.slow_period})</span><span class="signal-value">${sig.ma_slow !== null ? fmt(sig.ma_slow) + " ₩" : "-"}</span></div>
       <div class="signal-row"><span class="signal-label">포지션</span><span class="signal-value">${sig.in_trade ? "보유 중" : "없음"}</span></div>`;
+  } else if (strategy === "TRAILING_BREAKOUT") {
+    html += `
+      <div class="signal-row"><span class="signal-label">시가</span><span class="signal-value">${fmt(sig.open)} ₩</span></div>
+      <div class="signal-row"><span class="signal-label">전일 범위</span><span class="signal-value">${fmt(sig.prev_range)} ₩</span></div>
+      <div class="signal-row"><span class="signal-label">목표가 (×K=${sig.k})</span><span class="signal-value">${fmt(sig.target_price)} ₩</span></div>
+      <div class="signal-row"><span class="signal-label">손절가 (SL)</span><span class="signal-value">${fmt(sig.sl_price)} ₩</span></div>
+      <div class="signal-row"><span class="signal-label">트레일링 갭</span><span class="signal-value">${sig.trail_pct}%</span></div>
+      <div class="signal-row"><span class="signal-label">현재가</span><span class="signal-value">${fmt(sig.current_price)} ₩</span></div>`;
   } else if (strategy === "BOLLINGER_BOUNCE") {
     html += `
       <div class="signal-row"><span class="signal-label">현재가</span><span class="signal-value">${fmt(sig.current_price)} ₩</span></div>

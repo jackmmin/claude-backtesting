@@ -2,6 +2,14 @@ let ltActive = false;
 let ltStatusTimer = null;
 let _lastEventTs = null;  // 마지막 확인한 스케줄러 이벤트 타임스탬프
 
+// STRATEGY_OVERVIEW는 backtesting_ui.js에 정의된 공통 객체를 참조
+function updateLtStrategyDesc() {
+  const strategy = document.getElementById("ltStrategy").value;
+  const el = document.getElementById("ltStrategyDesc");
+  if (!el) return;
+  el.textContent = (typeof STRATEGY_OVERVIEW !== "undefined" && STRATEGY_OVERVIEW[strategy]) || "";
+}
+
 function syncLtMarkets() {
   const src = document.getElementById("marketSelect");
   const dst = document.getElementById("ltMarket");

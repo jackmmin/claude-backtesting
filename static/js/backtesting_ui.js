@@ -3,6 +3,15 @@ const STRATEGY_NAMES = {
   RSI_OVERSOLD_BOUNCE:   "RSI 과매도 반등",
   MA_GOLDEN_CROSS:       "MA 골든크로스",
   BOLLINGER_BOUNCE:      "볼린저밴드 반등",
+  TRAILING_BREAKOUT:     "트레일링 스탑 돌파",
+};
+
+const STRATEGY_OVERVIEW = {
+  K_VOLATILITY_BREAKOUT: "전일 변동폭의 K배를 시가에 더한 가격을 돌파하면 매수. 추세 추종형으로 변동성이 클수록 유리하며, TP/SL로 수익과 손실을 제한합니다.",
+  RSI_OVERSOLD_BOUNCE:   "RSI가 과매도 구간에 진입할 때 반등을 노리는 평균 회귀 전략. 횡보장에서 유효하며 추세장에서는 손실이 커질 수 있습니다.",
+  MA_GOLDEN_CROSS:       "단기 이동평균이 장기 이동평균을 상향 돌파(골든크로스)할 때 매수. 중·장기 추세 추종 전략으로 추세가 뚜렷한 시장에서 강합니다.",
+  BOLLINGER_BOUNCE:      "볼린저밴드 하단을 이탈한 가격이 밴드 안으로 복귀할 때 매수. 과매도 반등을 노리는 평균 회귀 전략입니다.",
+  TRAILING_BREAKOUT:     "변동성 돌파로 진입 후 즉시 타이트한 손절로 손실을 제한하고, 고점 대비 일정 % 하락 시 청산(트레일링)으로 수익을 극대화. 손익비 중심 단기 전략.",
 };
 
 const INTERVAL_LABEL = {
@@ -56,6 +65,16 @@ function getStrategyDesc(strategy) {
     if (chk("maVolumeFilter")) filter.push(`볼륨${val("maVolumeMult")}x`);
     return `진입: MA${fast}/MA${slow} 골든크로스 | 청산: ${exit.join(" · ")} | 필터: ${filter.length ? filter.join(" · ") : "없음"}`;
   }
+  if (strategy === "TRAILING_BREAKOUT") {
+    const k     = val("tbKSlider");
+    const sl    = val("tbSl");
+    const trail = val("tbTrail");
+    const filter = [];
+    if (chk("tbMa1Filter"))    filter.push(`단기MA${val("tbMa1Period")}`);
+    if (chk("tbMa2Filter"))    filter.push(`장기MA${val("tbMa2Period")}`);
+    if (chk("tbVolumeFilter")) filter.push(`볼륨${val("tbVolumeMult")}x`);
+    return `진입: 시가+K(${k})×전봉변동폭 | SL: -${sl}% 고정 · 트레일: 고점-${trail}% | 필터: ${filter.length ? filter.join(" · ") : "없음"}`;
+  }
   if (strategy === "BOLLINGER_BOUNCE") {
     const period = val("bbPeriod"), std = val("bbStd");
     const exit   = [];
@@ -82,16 +101,19 @@ function onStrategyChange() {
     RSI_OVERSOLD_BOUNCE:   "ctrl-rsi",
     MA_GOLDEN_CROSS:       "ctrl-ma",
     BOLLINGER_BOUNCE:      "ctrl-bb",
+    TRAILING_BREAKOUT:     "ctrl-tb",
   };
   const id = map[strategy];
   if (id) document.getElementById(id).classList.add("active");
+  document.getElementById("strategyOverview").textContent = STRATEGY_OVERVIEW[strategy] || "";
   document.getElementById("strategyDesc").textContent = getStrategyDesc(strategy);
   document.getElementById("btResult").style.display = "none";
 }
 
 function updateStrategyDesc() {
-  document.getElementById("strategyDesc").textContent =
-    getStrategyDesc(document.getElementById("strategySelect").value);
+  const strategy = document.getElementById("strategySelect").value;
+  document.getElementById("strategyOverview").textContent = STRATEGY_OVERVIEW[strategy] || "";
+  document.getElementById("strategyDesc").textContent = getStrategyDesc(strategy);
 }
 
 document.querySelectorAll(".param-panel input, .param-panel select").forEach(el => {
@@ -102,6 +124,10 @@ document.querySelectorAll(".param-panel input, .param-panel select").forEach(el 
 const kSlider  = document.getElementById("kSlider");
 const kDisplay = document.getElementById("kValueDisplay");
 kSlider.addEventListener("input", () => { kDisplay.textContent = kSlider.value; });
+
+const tbKSlider  = document.getElementById("tbKSlider");
+const tbKDisplay = document.getElementById("tbKValueDisplay");
+tbKSlider.addEventListener("input", () => { tbKDisplay.textContent = tbKSlider.value; });
 
 const capitalInput = document.getElementById("initialCapital");
 capitalInput.addEventListener("input", () => {
@@ -125,7 +151,17 @@ async function runBacktest() {
   const initialCapital = getCapitalValue();
 
   let params = `market=${market}&strategy=${strategy}&interval=${interval}&count=${count}&initial_capital=${initialCapital}`;
-  if (strategy === "K_VOLATILITY_BREAKOUT") {
+  if (strategy === "TRAILING_BREAKOUT") {
+    params += `&k=${parseFloat(document.getElementById("tbKSlider").value)}`;
+    params += `&tb_sl=${-parseFloat(document.getElementById("tbSl").value) / 100}`;
+    params += `&tb_trail=${parseFloat(document.getElementById("tbTrail").value) / 100}`;
+    params += `&tb_ma1_filter=${document.getElementById("tbMa1Filter").checked}`;
+    params += `&tb_ma1_period=${document.getElementById("tbMa1Period").value}`;
+    params += `&tb_ma2_filter=${document.getElementById("tbMa2Filter").checked}`;
+    params += `&tb_ma2_period=${document.getElementById("tbMa2Period").value}`;
+    params += `&tb_volume_filter=${document.getElementById("tbVolumeFilter").checked}`;
+    params += `&tb_volume_mult=${document.getElementById("tbVolumeMult").value}`;
+  } else if (strategy === "K_VOLATILITY_BREAKOUT") {
     params += `&k=${parseFloat(kSlider.value)}`;
     params += `&k_use_tp=${document.getElementById("kUseTp").checked}`;
     params += `&k_tp=${parseFloat(document.getElementById("kTp").value) / 100}`;

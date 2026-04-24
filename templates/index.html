@@ -80,6 +80,7 @@
           <option value="RSI_OVERSOLD_BOUNCE">RSI 과매도 반등</option>
           <option value="MA_GOLDEN_CROSS">MA 골든크로스</option>
           <option value="BOLLINGER_BOUNCE">볼린저밴드 반등</option>
+          <option value="TRAILING_BREAKOUT">트레일링 스탑 돌파</option>
         </select>
       </label>
       <label>
@@ -124,6 +125,30 @@
         <div class="param-row">
           <span class="param-section-label">필터</span>
           <label><input type="checkbox" id="kVolumeFilter" checked> 볼륨 필터  배수: <input type="number" id="kVolumeMult" value="1.5" min="0.5" max="10" step="0.1" style="width:60px;">x</label>
+        </div>
+      </div>
+
+      <!-- 트레일링 스탑 돌파 전용 -->
+      <div id="ctrl-tb" class="param-panel">
+        <div class="param-row">
+          <span class="param-section-label">진입</span>
+          <label>K 값: <input type="range" id="tbKSlider" min="0.1" max="1.0" step="0.05" value="0.5"> <span id="tbKValueDisplay">0.5</span></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">청산</span>
+          <label>고정 SL (%): <input type="number" id="tbSl" value="2" min="0.5" max="10" step="0.5" style="width:60px;"></label>
+          <div class="param-divider"></div>
+          <label>트레일링 갭 (%): <input type="number" id="tbTrail" value="3" min="0.5" max="15" step="0.5" style="width:60px;"></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">MA필터</span>
+          <label><input type="checkbox" id="tbMa1Filter" checked> 단기 MA 기간: <input type="number" id="tbMa1Period" value="10" min="3" max="100" style="width:60px;"></label>
+          <div class="param-divider"></div>
+          <label><input type="checkbox" id="tbMa2Filter" checked> 장기 MA 기간: <input type="number" id="tbMa2Period" value="40" min="5" max="200" style="width:60px;"></label>
+        </div>
+        <div class="param-row">
+          <span class="param-section-label">필터</span>
+          <label><input type="checkbox" id="tbVolumeFilter" checked> 볼륨 필터  배수: <input type="number" id="tbVolumeMult" value="1.5" min="0.5" max="10" step="0.1" style="width:60px;">x</label>
         </div>
       </div>
 
@@ -201,6 +226,7 @@
       <button class="bt-run-btn" id="btRunBtn">백테스팅 실행</button>
     </div>
 
+    <p id="strategyOverview" style="font-size:0.82rem;color:#58a6ff;margin-bottom:4px;font-weight:500;"></p>
     <p id="strategyDesc" style="font-size:0.8rem;color:#8b949e;margin-bottom:18px;"></p>
 
     <div id="btLoadingMsg">
@@ -325,8 +351,10 @@
           <option value="RSI_OVERSOLD_BOUNCE">RSI 과매도 반등</option>
           <option value="MA_GOLDEN_CROSS">MA 골든크로스</option>
           <option value="BOLLINGER_BOUNCE">볼린저밴드 반등</option>
+          <option value="TRAILING_BREAKOUT">트레일링 스탑 돌파</option>
         </select>
       </div>
+      <p id="ltStrategyDesc" style="font-size:0.82rem;color:#8b949e;margin:0 0 8px 0;padding-left:4px;line-height:1.6;"></p>
       <div class="lt-form-row">
         <span class="lt-label">타임프레임</span>
         <select class="lt-input" id="ltTimeframe" style="max-width:160px;">

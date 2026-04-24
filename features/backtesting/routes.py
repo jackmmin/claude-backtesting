@@ -10,6 +10,14 @@ def backtesting():
     market = request.args.get("market", "KRW-BTC")
     strategy = request.args.get("strategy", "K_VOLATILITY_BREAKOUT")
     k = float(request.args.get("k", 0.5))
+    tb_sl = float(request.args.get("tb_sl", -0.02))
+    tb_trail = float(request.args.get("tb_trail", 0.03))
+    tb_ma1_filter = request.args.get("tb_ma1_filter", "false").lower() == "true"
+    tb_ma1_period = int(request.args.get("tb_ma1_period", 20))
+    tb_ma2_filter = request.args.get("tb_ma2_filter", "false").lower() == "true"
+    tb_ma2_period = int(request.args.get("tb_ma2_period", 60))
+    tb_volume_filter = request.args.get("tb_volume_filter", "false").lower() == "true"
+    tb_volume_mult = float(request.args.get("tb_volume_mult", 1.5))
     k_tp = float(request.args.get("k_tp", 0.05))
     k_sl = float(request.args.get("k_sl", -0.03))
     k_use_tp = request.args.get("k_use_tp", "true").lower() == "true"
@@ -62,7 +70,12 @@ def backtesting():
 
     return jsonify(run_backtest(
         exchange=exchange, market=market, strategy=strategy,
-        k=k, k_tp=k_tp, k_sl=k_sl, k_use_tp=k_use_tp, k_use_sl=k_use_sl,
+        k=k,
+        tb_sl=tb_sl, tb_trail=tb_trail,
+        tb_ma1_filter=tb_ma1_filter, tb_ma1_period=tb_ma1_period,
+        tb_ma2_filter=tb_ma2_filter, tb_ma2_period=tb_ma2_period,
+        tb_volume_filter=tb_volume_filter, tb_volume_mult=tb_volume_mult,
+        k_tp=k_tp, k_sl=k_sl, k_use_tp=k_use_tp, k_use_sl=k_use_sl,
         k_ma1_filter=k_ma1_filter, k_ma1_period=k_ma1_period,
         k_ma2_filter=k_ma2_filter, k_ma2_period=k_ma2_period,
         k_ma3_filter=k_ma3_filter, k_ma3_period=k_ma3_period,
