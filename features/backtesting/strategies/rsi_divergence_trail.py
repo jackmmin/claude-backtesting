@@ -28,13 +28,14 @@ def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
     - 트레일링 스탑: 진입 후 고점 대비 trail_pct% 하락 시 청산 (수익 극대화)
     - 고정 손절: 진입가 대비 sl_pct% 하락 시 즉시 청산 (손실 제한)
     """
-    trades      = []
-    portfolio   = initial_capital
-    in_trade    = False
-    entry_price = None
-    entry_date  = None
-    entry_dt    = None
-    peak_price  = None
+    trades        = []
+    portfolio     = initial_capital
+    in_trade      = False
+    entry_price   = None
+    entry_date    = None
+    entry_dt      = None
+    entry_amount  = None  # 진입 시점 포트폴리오 스냅샷
+    peak_price    = None
 
     # RSI 시계열 전체를 미리 계산 (closes와 인덱스 1:1 대응)
     closes, rsi_series = _build_rsi_series(data, rsi_period)
@@ -74,10 +75,12 @@ def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
                     "date":          entry_date,
                     "buy_datetime":  entry_dt,
                     "sell_datetime": curr["candle_date_time_kst"],
-                    "buy_price":     round(entry_price),
-                    "sell_price":    round(raw_sell),
+                    "buy_price":     entry_price,
+                    "sell_price":    raw_sell,
                     "pnl":           round(pnl, 6),
                     "win":           pnl > 0,
+                    "entry_amount":  entry_amount,
+                    "fee":           round(entry_amount * FEE_RATE * 2),
                 })
                 in_trade = False
 
@@ -108,12 +111,13 @@ def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
             # 다음 봉 시가로 진입
             if i + 1 >= len(data):
                 continue
-            next_open   = data[i + 1]["opening_price"]
-            entry_price = next_open
-            entry_date  = curr["candle_date_time_kst"][:10]
-            entry_dt    = data[i + 1]["candle_date_time_kst"]
-            peak_price  = next_open
-            in_trade    = True
+            next_open    = data[i + 1]["opening_price"]
+            entry_price  = next_open
+            entry_date   = curr["candle_date_time_kst"][:10]
+            entry_dt     = data[i + 1]["candle_date_time_kst"]
+            entry_amount = portfolio
+            peak_price   = next_open
+            in_trade     = True
 
     # 미청산 포지션: 현재가 기준 미실현 손익
     open_trade = None
@@ -129,8 +133,8 @@ def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
             "date":          entry_date,
             "buy_datetime":  entry_dt,
             "sell_datetime": "",
-            "buy_price":     round(entry_price),
-            "sell_price":    round(curr_price),
+            "buy_price":     entry_price,
+            "sell_price":    curr_price,
             "pnl":           round(pnl_unreal, 6),
             "win":           pnl_unreal > 0,
             "open":          True,

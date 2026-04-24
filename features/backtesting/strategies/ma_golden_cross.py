@@ -8,10 +8,12 @@ def run(data, fast=5, slow=20, initial_capital=1000000,
         ma_volume_filter=False, ma_volume_mult=1.5,
         ma_max_hold_bars=0):
     trades = []
+    portfolio = initial_capital
     in_trade = False
     entry_price = None
     entry_date = None
     entry_datetime = None
+    entry_amount = None  # 진입 시점 포트폴리오 스냅샷
     hold_bars = 0
 
     for i in range(slow + 1, len(data)):
@@ -39,6 +41,7 @@ def run(data, fast=5, slow=20, initial_capital=1000000,
                     entry_price = data[i + 1]["opening_price"] * (1 + FEE_RATE)
                     entry_date = data[i]["candle_date_time_kst"][:10]
                     entry_datetime = data[i + 1]["candle_date_time_kst"]
+                    entry_amount = portfolio
                     in_trade = True
                     hold_bars = 0
         else:
@@ -62,14 +65,17 @@ def run(data, fast=5, slow=20, initial_capital=1000000,
             if exited_sell is not None:
                 sell_price = exited_sell * (1 - FEE_RATE)
                 pnl = (sell_price - entry_price) / entry_price
+                portfolio = round(portfolio * (1 + pnl))
                 trades.append({
                     "date": entry_date,
                     "buy_datetime": entry_datetime,
                     "sell_datetime": exited_dt,
-                    "buy_price": round(raw_entry),
-                    "sell_price": round(exited_sell),
+                    "buy_price": raw_entry,
+                    "sell_price": exited_sell,
                     "pnl": round(pnl, 6),
                     "win": pnl > 0,
+                    "entry_amount": entry_amount,
+                    "fee": round(entry_amount * FEE_RATE * 2),
                 })
                 in_trade = False
 
@@ -80,7 +86,7 @@ def run(data, fast=5, slow=20, initial_capital=1000000,
         pnl_unrealized = (current_price * (1 - FEE_RATE) - entry_price) / entry_price
         open_trade = {
             "date": entry_date, "buy_datetime": entry_datetime, "sell_datetime": "",
-            "buy_price": round(raw_entry), "sell_price": round(current_price),
+            "buy_price": raw_entry, "sell_price": current_price,
             "pnl": round(pnl_unrealized, 6), "win": pnl_unrealized > 0, "open": True,
         }
 
@@ -102,8 +108,8 @@ def run(data, fast=5, slow=20, initial_capital=1000000,
             "date": data[-1]["candle_date_time_kst"][:10],
             "buy_datetime": data[-1]["candle_date_time_kst"],
             "sell_datetime": "",
-            "buy_price": round(cp),
-            "sell_price": round(cp),
+            "buy_price": cp,
+            "sell_price": cp,
             "pnl": 0.0,
             "win": False,
             "open": True,

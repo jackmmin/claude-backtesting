@@ -237,7 +237,15 @@ function renderBtRsiChart(d) {
 }
 
 function renderBacktest(d) {
-  const fmt = n => Number(n).toLocaleString("ko-KR");
+  // 정수면 쉼표 구분, 소수점 있으면 최대 8자리까지 표시 (불필요한 trailing zero 제거)
+  const fmt = n => {
+    const num = Number(n);
+    if (!isFinite(num)) return "-";
+    if (Number.isInteger(num)) return num.toLocaleString("ko-KR");
+    const [int, dec] = num.toFixed(8).split(".");
+    const trimmed = dec.replace(/0+$/, "");
+    return Number(int).toLocaleString("ko-KR") + (trimmed ? "." + trimmed : "");
+  };
   const pct = n => (n * 100).toFixed(2) + "%";
 
   renderBtCandleChart(d);
