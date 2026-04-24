@@ -184,17 +184,26 @@ async function runBacktest() {
   document.getElementById("btLoadingText").textContent =
     `${STRATEGY_NAMES[strategy]} | ${INTERVAL_LABEL[interval]} ${count}개 캔들 수집 중...`;
   document.getElementById("btResult").style.display = "none";
+  document.getElementById("btErrorMsg").style.display = "none";
 
   try {
     const res  = await fetch(`/api/backtesting?${params}`);
     const data = await res.json();
-    if (data.error) { alert(data.error); return; }
+    if (data.error) {
+      showBtError(data.error);
+      return;
+    }
     document.getElementById("btResult").style.display = "block";
     renderBacktest(data);
   } catch (e) {
-    alert("백테스팅 오류: " + e.message);
+    showBtError("백테스팅 오류: " + e.message);
   } finally {
     btn.disabled = false;
     document.getElementById("btLoadingMsg").style.display = "none";
   }
+}
+
+function showBtError(message) {
+  document.getElementById("btErrorText").textContent = message;
+  document.getElementById("btErrorMsg").style.display = "block";
 }

@@ -15,10 +15,15 @@ async function handle(req, res, query) {
   const count = parseInt(query.count || 200);
   const initialCapital = parseInt(query.initial_capital || 1000000);
 
-  const data = await runBacktest({
-    market, strategy, k, rsiPeriod, rsiThreshold, rsiExit,
-    maFast, maSlow, bbPeriod, bbStd, interval, count, initialCapital,
-  });
+  let data;
+  try {
+    data = await runBacktest({
+      market, strategy, k, rsiPeriod, rsiThreshold, rsiExit,
+      maFast, maSlow, bbPeriod, bbStd, interval, count, initialCapital,
+    });
+  } catch (e) {
+    data = { error: `데이터를 가져오지 못했습니다: ${e.message}` };
+  }
   res.setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(data));
 }

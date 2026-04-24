@@ -13,7 +13,15 @@ async function runBacktest({
   bbPeriod = 20, bbStd = 2.0,
   interval = "days", count = 200, initialCapital = 1000000,
 } = {}) {
-  const candles = await getCandlesBulk(market, count, interval);
+  let candles;
+  try {
+    candles = await getCandlesBulk(market, count, interval);
+  } catch (e) {
+    return { error: `데이터를 가져오지 못했습니다. 네트워크 또는 업비트 API 오류: ${e.message}` };
+  }
+  if (!candles || candles.length === 0) {
+    return { error: `데이터를 가져오지 못했습니다. (${market} ${interval} 캔들 0개 수신)` };
+  }
   if (candles.length < MIN_CANDLES) {
     return { error: `데이터 부족: ${candles.length}개 수집 (최소 ${MIN_CANDLES}개 필요)` };
   }
