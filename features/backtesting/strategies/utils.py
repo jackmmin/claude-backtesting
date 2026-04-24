@@ -3,53 +3,52 @@ import statistics
 FEE_RATE = 0.0005  # 매수/매도 각 0.05% 수수료
 
 
-def find_local_lows(values, window=5):
+def find_price_lows(closes, window=3):
     """
-    로컬 저점 인덱스 반환: 양쪽 window개보다 작은 지점
+    가격 기준 로컬 저점 인덱스 반환.
+    양쪽 window개보다 낮거나 같은 지점. 배열 끝부분은 오른쪽 비교 대상이
+    부족하므로 자동으로 제외된다.
     """
     lows = []
-    for i in range(window, len(values) - window):
-        if all(values[i] <= values[i - j] for j in range(1, window + 1)) and \
-           all(values[i] <= values[i + j] for j in range(1, window + 1)):
+    n = len(closes)
+    for i in range(window, n - window):
+        if all(closes[i] <= closes[i - j] for j in range(1, window + 1)) and \
+           all(closes[i] <= closes[i + j] for j in range(1, window + 1)):
             lows.append(i)
     return lows
 
 
-def detect_bullish_divergence(closes, rsi_values, lookback=30, window=3):
+def detect_bullish_divergence(closes, rsi_values, lookback=30, window=3, rsi_warmup=15):
     """
-    상승 다이버전스 탐지: 최근 lookback 봉 내에서
-    - 가격: 신저점 (이전 저점보다 낮음)
-    - RSI: 전 저점보다 높음 (다이버전스)
+    상승 다이버전스 탐지.
+    전체 배열에서 가격 로컬 저점을 찾고, 가장 최근 저점(curr)이 lookback 범위 안에
+    있으면 그 이전 저점(prev)과 비교한다. prev는 lookback 밖이어도 허용.
+    rsi_warmup 이전 인덱스의 저점은 RSI가 신뢰할 수 없으므로 제외.
+    - 가격: curr 저점이 prev 저점보다 낮음 (신저점)
+    - RSI:  curr 저점 위치의 RSI가 prev 저점 위치보다 높음 (강도 회복)
     반환: (탐지 여부, 이전 저점 RSI, 현재 저점 RSI)
     """
-    if len(closes) < lookback + window * 2:
+    n = len(closes)
+    if n < window * 2 + 2 or len(rsi_values) != n:
         return False, None, None
 
-    recent_closes = closes[-lookback:]
-    recent_rsi    = rsi_values[-lookback:]
-
-    price_lows = find_local_lows(recent_closes, window)
-    rsi_lows   = find_local_lows(recent_rsi,   window)
-
-    # 공통 저점 인덱스 교집합 (허용 오차 ±1)
-    matched = []
-    for pi in price_lows:
-        for ri in rsi_lows:
-            if abs(pi - ri) <= 1:
-                matched.append(pi)
-                break
-
-    if len(matched) < 2:
+    # RSI 워밍업 이후 구간에서만 저점 탐색
+    all_lows = [i for i in find_price_lows(closes, window) if i >= rsi_warmup]
+    if len(all_lows) < 2:
         return False, None, None
 
-    prev_idx = matched[-2]
-    curr_idx = matched[-1]
+    # 가장 최근 저점(curr)이 lookback 범위 안에 있어야 의미 있는 신호
+    curr_abs = all_lows[-1]
+    if curr_abs < n - lookback:
+        return False, None, None
 
-    price_divergence = recent_closes[curr_idx] < recent_closes[prev_idx]
-    rsi_divergence   = recent_rsi[curr_idx]    > recent_rsi[prev_idx]
+    prev_abs = all_lows[-2]
+
+    price_divergence = closes[curr_abs] < closes[prev_abs]          # 가격 신저점
+    rsi_divergence   = rsi_values[curr_abs] > rsi_values[prev_abs]  # RSI 상승
 
     if price_divergence and rsi_divergence:
-        return True, recent_rsi[prev_idx], recent_rsi[curr_idx]
+        return True, rsi_values[prev_abs], rsi_values[curr_abs]
     return False, None, None
 
 
