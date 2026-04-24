@@ -191,14 +191,14 @@ function renderBtRsiChart(d) {
   // 과매도(30) / 과매수(70) 기준선
   const makeBaseline = (val, color) => {
     const s = btRsiLwChart.addLineSeries({
-      color, lineWidth: 1, lineStyle: 2,
+      color, lineWidth: 2, lineStyle: 0,
       priceLineVisible: false, lastValueVisible: false,
       crosshairMarkerVisible: false,
     });
     s.setData(rsiData.map(p => ({ time: p.time, value: val })));
   };
-  makeBaseline(70, "rgba(248,81,73,0.5)");
-  makeBaseline(30, "rgba(63,185,80,0.5)");
+  makeBaseline(70, "rgba(63,185,80,0.5)");
+  makeBaseline(30, "rgba(248,81,73,0.5)");
   makeBaseline(50, "rgba(139,148,158,0.3)");
 
   // RSI_DIVERGENCE_TRAIL: 다이버전스 저점 마커 표시
