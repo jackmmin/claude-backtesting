@@ -315,7 +315,8 @@ function buildResult(strategy, trades, initialCapital, currentSignal, candles = 
     equityCurve.push({ date: t.date, value: portfolio });
     t.krw_pnl = portfolio - prev;
     t.entry_amount = prev;
-    t.fee = Math.round(prev * FEE_RATE * 2);
+    // 청산 완료 시 매수+매도 수수료, 보유중(미청산)은 매수 수수료만
+    t.fee = Math.round(prev * FEE_RATE * (t.sell_datetime ? 2 : 1));
   }
 
   const tradeMarkers = trades
