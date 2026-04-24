@@ -66,6 +66,7 @@ def run(data, fast=5, slow=20, initial_capital=1000000,
                 sell_price = exited_sell * (1 - FEE_RATE)
                 pnl = (sell_price - entry_price) / entry_price
                 portfolio = round(portfolio * (1 + pnl))
+                exit_amount = round(entry_amount * (1 + pnl))
                 trades.append({
                     "date": entry_date,
                     "buy_datetime": entry_datetime,
@@ -75,7 +76,7 @@ def run(data, fast=5, slow=20, initial_capital=1000000,
                     "pnl": round(pnl, 6),
                     "win": pnl > 0,
                     "entry_amount": entry_amount,
-                    "fee": round(entry_amount * FEE_RATE * 2),
+                    "fee": round(entry_amount * FEE_RATE + exit_amount * FEE_RATE),
                 })
                 in_trade = False
 
@@ -84,10 +85,13 @@ def run(data, fast=5, slow=20, initial_capital=1000000,
         current_price = data[-1]["trade_price"]
         raw_entry = entry_price / (1 + FEE_RATE)
         pnl_unrealized = (current_price * (1 - FEE_RATE) - entry_price) / entry_price
+        exit_amount_unreal = round(entry_amount * (1 + pnl_unrealized))
         open_trade = {
             "date": entry_date, "buy_datetime": entry_datetime, "sell_datetime": "",
             "buy_price": raw_entry, "sell_price": current_price,
             "pnl": round(pnl_unrealized, 6), "win": pnl_unrealized > 0, "open": True,
+            "entry_amount": entry_amount,
+            "fee": round(entry_amount * FEE_RATE + exit_amount_unreal * FEE_RATE),
         }
 
     closes = [c["trade_price"] for c in data]
@@ -113,6 +117,8 @@ def run(data, fast=5, slow=20, initial_capital=1000000,
             "pnl": 0.0,
             "win": False,
             "open": True,
+            "entry_amount": portfolio,
+            "fee": round(portfolio * FEE_RATE * 2),
         }
 
     current_signal = {

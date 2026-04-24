@@ -71,6 +71,7 @@ def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
                 sell_recv = raw_sell    * (1 - FEE_RATE)
                 pnl = (sell_recv - buy_cost) / buy_cost
                 portfolio = round(portfolio * (1 + pnl))
+                exit_amount = round(entry_amount * (1 + pnl))
                 trades.append({
                     "date":          entry_date,
                     "buy_datetime":  entry_dt,
@@ -80,7 +81,7 @@ def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
                     "pnl":           round(pnl, 6),
                     "win":           pnl > 0,
                     "entry_amount":  entry_amount,
-                    "fee":           round(entry_amount * FEE_RATE * 2),
+                    "fee":           round(entry_amount * FEE_RATE + exit_amount * FEE_RATE),
                 })
                 in_trade = False
 
@@ -129,6 +130,7 @@ def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
         buy_cost    = entry_price * (1 + FEE_RATE)
         sell_recv   = curr_price  * (1 - FEE_RATE)
         pnl_unreal  = (sell_recv - buy_cost) / buy_cost
+        exit_amount_unreal = round(entry_amount * (1 + pnl_unreal))
         open_trade  = {
             "date":          entry_date,
             "buy_datetime":  entry_dt,
@@ -138,6 +140,8 @@ def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
             "pnl":           round(pnl_unreal, 6),
             "win":           pnl_unreal > 0,
             "open":          True,
+            "entry_amount":  entry_amount,
+            "fee":           round(entry_amount * FEE_RATE + exit_amount_unreal * FEE_RATE),
         }
 
     # 현재 신호 상태 (마지막 봉 기준)

@@ -71,6 +71,7 @@ def run(data, k=0.5, initial_capital=1000000,
             entry_amount = portfolio  # 진입 시점 포트폴리오 전액 투자
             portfolio = round(portfolio * (1 + pnl))  # 잔고 갱신
             last_trade_date = curr_date  # 당일 추가 진입 방지
+            exit_amount = round(entry_amount * (1 + pnl))
             trades.append({
                 "date": curr["candle_date_time_kst"][:16],
                 "buy_datetime": curr["candle_date_time_kst"],
@@ -80,7 +81,7 @@ def run(data, k=0.5, initial_capital=1000000,
                 "pnl": round(pnl, 6),
                 "win": pnl > 0,
                 "entry_amount": entry_amount,
-                "fee": round(entry_amount * FEE_RATE * 2),
+                "fee": round(entry_amount * FEE_RATE + exit_amount * FEE_RATE),
             })
 
     current_signal = None
