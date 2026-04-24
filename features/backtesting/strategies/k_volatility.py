@@ -8,7 +8,8 @@ def run(data, k=0.5, initial_capital=1000000,
         k_ma3_filter=False, k_ma3_period=60,
         k_volume_filter=False, k_volume_mult=1.5):
     trades = []
-    portfolio = initial_capital  # 현재 잔고 추적 (초기비용 이하 시 매수 건너뜀)
+    portfolio = initial_capital
+    last_trade_date = None  # 하루 1회 거래 제한 (분봉 사용 시 동일 날짜 중복 진입 방지)
     ma_configs = [
         (k_ma1_filter, k_ma1_period),
         (k_ma2_filter, k_ma2_period),
@@ -17,6 +18,11 @@ def run(data, k=0.5, initial_capital=1000000,
     for i in range(1, len(data)):
         prev = data[i - 1]
         curr = data[i]
+        curr_date = curr["candle_date_time_kst"][:10]
+
+        # 같은 날 이미 거래가 발생했으면 건너뜀
+        if last_trade_date == curr_date:
+            continue
 
         # 활성화된 모든 MA 추세 필터 통과 시 진입 (시가가 각 MA 위에 있어야 함)
         skip = False
@@ -63,6 +69,7 @@ def run(data, k=0.5, initial_capital=1000000,
             sell = raw_sell * (1 - FEE_RATE)
             pnl = (sell - buy_cost) / buy_cost
             portfolio = round(portfolio * (1 + pnl))  # 잔고 갱신
+            last_trade_date = curr_date  # 당일 추가 진입 방지
             trades.append({
                 "date": curr["candle_date_time_kst"][:16],
                 "buy_datetime": curr["candle_date_time_kst"],
