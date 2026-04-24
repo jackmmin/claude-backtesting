@@ -157,7 +157,7 @@ function getCapitalValue() {
 
 async function runBacktest() {
   const market   = document.getElementById("marketSelect").value;
-  if (!market) return;
+  if (!market) { showToast("마켓을 선택해주세요"); return; }
   const strategy = document.getElementById("strategySelect").value;
   const interval = document.getElementById("intervalSelect").value;
   const count    = parseInt(document.getElementById("candleCount").value) || 200;

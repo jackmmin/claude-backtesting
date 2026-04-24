@@ -33,38 +33,52 @@ let btLwChart = null;
 
 // ── 마켓 목록 로드 ──────────────────────────────────────
 async function loadMarkets() {
-  const res = await fetch("/api/markets");
-  const data = await res.json();
-  const sel = document.getElementById("marketSelect");
-  sel.innerHTML = "";
-  data.forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m.market;
-    opt.textContent = `${m.market} (${m.korean_name})`;
-    sel.appendChild(opt);
-  });
-  sel.value = "KRW-BTC";
-  loadTvChart();
+  try {
+    const res = await fetch("/api/markets");
+    if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+    const data = await res.json();
+    if (!Array.isArray(data) || data.length === 0) throw new Error("마켓 목록이 비어있습니다");
+    const sel = document.getElementById("marketSelect");
+    sel.innerHTML = "";
+    data.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m.market;
+      opt.textContent = `${m.market} (${m.korean_name})`;
+      sel.appendChild(opt);
+    });
+    sel.value = "KRW-BTC";
+    loadTvChart();
+  } catch (e) {
+    showToast("마켓 목록 로드 실패: " + e.message);
+  }
 }
 
 // ── 티커 업데이트 ───────────────────────────────────────
 async function loadTicker(market) {
-  const res = await fetch(`/api/ticker?market=${market}`);
-  const [t] = await res.json();
+  try {
+    const res = await fetch(`/api/ticker?market=${market}`);
+    if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
+    const json = await res.json();
+    const t = Array.isArray(json) ? json[0] : null;
+    if (!t) throw new Error("응답 데이터 없음");
 
-  const fmt  = n => Number(n).toLocaleString("ko-KR");
-  const fmtB = n => (n / 1e8).toFixed(1) + "억";
+    const fmt  = n => Number(n).toLocaleString("ko-KR");
+    const fmtB = n => (n / 1e8).toFixed(1) + "억";
 
-  document.getElementById("t-price").textContent  = fmt(t.trade_price) + " ₩";
-  document.getElementById("t-change").textContent = (t.signed_change_price >= 0 ? "+" : "") + fmt(t.signed_change_price) + " ₩";
-  document.getElementById("t-rate").textContent   = (t.signed_change_rate >= 0 ? "+" : "") + (t.signed_change_rate * 100).toFixed(2) + "%";
-  document.getElementById("t-vol").textContent    = fmtB(t.acc_trade_price_24h);
-  document.getElementById("t-high52").textContent = fmt(t.highest_52_week_price) + " ₩";
-  document.getElementById("t-low52").textContent  = fmt(t.lowest_52_week_price) + " ₩";
+    document.getElementById("t-price").textContent  = fmt(t.trade_price) + " ₩";
+    document.getElementById("t-change").textContent = (t.signed_change_price >= 0 ? "+" : "") + fmt(t.signed_change_price) + " ₩";
+    document.getElementById("t-rate").textContent   = (t.signed_change_rate >= 0 ? "+" : "") + (t.signed_change_rate * 100).toFixed(2) + "%";
+    document.getElementById("t-vol").textContent    = fmtB(t.acc_trade_price_24h);
+    document.getElementById("t-high52").textContent = fmt(t.highest_52_week_price) + " ₩";
+    document.getElementById("t-low52").textContent  = fmt(t.lowest_52_week_price) + " ₩";
 
-  const dir = t.change === "RISE" ? "up" : t.change === "FALL" ? "down" : "neutral";
-  document.getElementById("t-change").className = "value " + dir;
-  document.getElementById("t-rate").className   = "value " + dir;
+    const dir = t.change === "RISE" ? "up" : t.change === "FALL" ? "down" : "neutral";
+    document.getElementById("t-change").className = "value " + dir;
+    document.getElementById("t-rate").className   = "value " + dir;
+  } catch (e) {
+    // 30초 주기 폴링이므로 toast 대신 콘솔만 기록 (화면 도배 방지)
+    console.warn("티커 업데이트 실패:", e.message);
+  }
 }
 
 // Upbit 마켓 코드 → TradingView 심볼 변환 (예: KRW-BTC → UPBIT:BTCKRW)

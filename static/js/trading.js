@@ -47,7 +47,9 @@ async function refreshKeyStatus() {
         liveTradingBtn.title = "upbit_keys 파일에 API 키를 등록해주세요";
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    showToast("키 상태 확인 실패: " + e.message);
+  }
 }
 
 // 연결테스트 결과에 따라 키 상태 UI 업데이트 (체크/x)
@@ -95,7 +97,7 @@ async function testConnection() {
 
 async function startTrading() {
   const market = document.getElementById("ltMarket").value;
-  if (!market) { alert("마켓을 선택해주세요"); return; }
+  if (!market) { showToast("마켓을 선택해주세요"); return; }
 
   const strategy  = document.getElementById("ltStrategy").options[document.getElementById("ltStrategy").selectedIndex].text;
   const timeframe = document.getElementById("ltTimeframe").options[document.getElementById("ltTimeframe").selectedIndex].text;
@@ -123,10 +125,10 @@ async function startTrading() {
       refreshStatus();
       ltStatusTimer = setInterval(refreshStatus, 10000);
     } else {
-      alert("시작 실패: " + d.error);
+      showToast("시작 실패: " + (d.error || "알 수 없는 오류"));
     }
   } catch (e) {
-    alert("요청 실패");
+    showToast("자동매매 시작 요청 실패: " + e.message);
   }
 }
 
@@ -145,8 +147,13 @@ async function stopTrading() {
       document.getElementById("ltRunStatus").innerHTML = '<span class="lt-status-dot off" id="ltDot"></span>대기 중';
       if (ltStatusTimer) { clearInterval(ltStatusTimer); ltStatusTimer = null; }
       refreshStatus();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      showToast("중지 실패: " + (d.error || "알 수 없는 오류"));
     }
-  } catch (e) { alert("요청 실패"); }
+  } catch (e) {
+    showToast("자동매매 중지 요청 실패: " + e.message);
+  }
 }
 
 function renderPositionCard(card, body, position, pnl, isManual) {
@@ -195,16 +202,20 @@ async function registerManualPosition() {
   const quantity      = parseFloat(document.getElementById("mpQuantity").value);
   const entryDatetime = document.getElementById("mpEntryDatetime").value;
   if (!market || !entryPrice || !quantity || !entryDatetime) {
-    alert("모든 필드를 입력해주세요."); return;
+    showToast("모든 필드를 입력해주세요."); return;
   }
-  const res = await fetch("/api/trading/position/manual", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ market, entry_price: entryPrice, quantity, entry_datetime: new Date(entryDatetime).toISOString() }),
-  });
-  const d = await res.json();
-  if (res.ok) { toggleManualPositionForm(); refreshStatus(); }
-  else alert("등록 실패: " + d.error);
+  try {
+    const res = await fetch("/api/trading/position/manual", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ market, entry_price: entryPrice, quantity, entry_datetime: new Date(entryDatetime).toISOString() }),
+    });
+    const d = await res.json();
+    if (res.ok) { toggleManualPositionForm(); refreshStatus(); }
+    else showToast("등록 실패: " + (d.error || "알 수 없는 오류"));
+  } catch (e) {
+    showToast("포지션 등록 요청 실패: " + e.message);
+  }
 }
 
 async function closeManualPosition() {
@@ -261,7 +272,9 @@ async function refreshStatus() {
         showToast("⚠ " + d.last_event.message);
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn("상태 조회 실패:", e.message);
+  }
 
   refreshOrders();
 }
@@ -269,13 +282,19 @@ async function refreshStatus() {
 async function refreshBalance() {
   try {
     const res = await fetch("/api/trading/balance");
-    if (!res.ok) return;
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      showToast("잔액 조회 실패: " + (d.error || `서버 오류 (${res.status})`));
+      return;
+    }
     const d = await res.json();
     document.getElementById("ltBalanceBody").innerHTML =
       `KRW 가용: <strong style="color:#e6edf3">${Math.floor(d.krw_balance).toLocaleString("ko-KR")} ₩</strong>
       &nbsp; 대기주문: <strong style="color:#8b949e">${Math.floor(d.krw_locked).toLocaleString("ko-KR")} ₩</strong>
       ${d.coin_balance > 0 ? ` &nbsp; 코인: <strong style="color:#e6edf3">${d.coin_balance}</strong>` : ""}`;
-  } catch (e) {}
+  } catch (e) {
+    showToast("잔액 조회 요청 실패: " + e.message);
+  }
 }
 
 async function refreshOrders() {
@@ -284,6 +303,10 @@ async function refreshOrders() {
       fetch("/api/trading/orders"),
       fetch("/api/trading/trades"),
     ]);
+    if (!ordRes.ok || !tradeRes.ok) {
+      console.warn("주문/거래 내역 조회 실패");
+      return;
+    }
     const { orders } = await ordRes.json();
     const { trades } = await tradeRes.json();
     const fmt = n => Number(n).toLocaleString("ko-KR");
@@ -329,5 +352,7 @@ async function refreshOrders() {
     } else {
       tradeBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px;">거래 없음</td></tr>';
     }
-  } catch (e) {}
+  } catch (e) {
+    console.warn("주문/거래 내역 로드 실패:", e.message);
+  }
 }
