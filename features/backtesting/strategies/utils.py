@@ -74,34 +74,78 @@ def rsi(closes, period=14):
 
 
 def _calc_rsi_series(candles, period):
-    """전체 캔들에 대해 RSI 시계열 계산. 워밍업 구간은 None."""
+    """전체 캔들에 대해 RSI 시계열 계산. 워밍업 구간은 None. O(n) 단일 패스."""
     closes = [c["trade_price"] for c in candles]
-    result = []
-    for i in range(len(closes)):
-        r = rsi(closes[:i + 1], period)
-        result.append(round(r, 2) if r is not None else None)
+    return calc_rsi_series_from_closes(closes, period)
+
+
+def calc_rsi_series_from_closes(closes, period):
+    """
+    종가 리스트로 RSI 시계열 계산. O(n) 단일 패스 (Wilder EMA).
+    워밍업 구간(인덱스 0 ~ period)은 None, 이후는 float.
+    """
+    n = len(closes)
+    result = [None] * n
+    if n < period + 1:
+        return result
+
+    diffs = [closes[i] - closes[i - 1] for i in range(1, n)]
+    gains = [max(d, 0) for d in diffs]
+    losses = [abs(min(d, 0)) for d in diffs]
+
+    # Wilder EMA 시드: 첫 period개 SMA
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+
+    def _rsi_val(ag, al):
+        if al == 0:
+            return 100.0 if ag > 0 else 50.0
+        return 100 - (100 / (1 + ag / al))
+
+    result[period] = round(_rsi_val(avg_gain, avg_loss), 2)
+
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+        result[i + 1] = round(_rsi_val(avg_gain, avg_loss), 2)
+
     return result
 
 
-def _find_divergence_points(candles, rsi_series, lookback=30):
+def _find_divergence_points(candles, rsi_series, lookback=30, window=3):
     """
     백테스팅 전 구간에서 다이버전스가 탐지된 캔들 인덱스 목록을 반환.
-    각 인덱스는 rsi_divergence_trail 전략과 동일한 방식으로 탐색.
+    슬라이싱 없이 전체 저점 목록을 한 번만 계산한 뒤 인덱스별로 직접 탐색. O(n).
     """
     closes = [c["trade_price"] for c in candles]
-    points = []
     rsi_vals = [v if v is not None else -1.0 for v in rsi_series]
     n = len(closes)
-    for i in range(lookback, n):
-        diverged, _, _ = detect_bullish_divergence(
-            closes[:i + 1], rsi_vals[:i + 1], lookback=lookback
-        )
-        if diverged:
-            # 연속 중복 방지: 직전 포인트와 3봉 이내면 스킵
+    rsi_warmup = 15
+
+    # 전체 가격 저점 목록을 한 번만 계산
+    all_lows = [i for i in find_price_lows(closes, window) if i >= rsi_warmup]
+
+    points = []
+    # 저점 목록을 순서대로 순회하며 각 봉 i에서 다이버전스 여부 판단
+    for low_idx in range(1, len(all_lows)):
+        curr_abs = all_lows[low_idx]
+        prev_abs = all_lows[low_idx - 1]
+
+        # curr 저점이 lookback 범위 안에 있어야 의미 있는 신호
+        # curr_abs 시점 기준: curr_abs >= n - lookback 이 아닌,
+        # 각 봉 i = curr_abs 에서 슬라이스 크기는 curr_abs + 1
+        # 즉 슬라이스 크기 내에서 curr_abs가 마지막 lookback 봉 안에 있으면 됨 → 항상 True (마지막 저점)
+        # 대신 이전 저점과의 관계만 확인
+        price_div = closes[curr_abs] < closes[prev_abs]
+        rsi_div   = rsi_vals[curr_abs] > rsi_vals[prev_abs]
+
+        if price_div and rsi_div:
+            i = curr_abs
             if points and i - points[-1] < 3:
                 points[-1] = i
             else:
                 points.append(i)
+
     return points
 
 

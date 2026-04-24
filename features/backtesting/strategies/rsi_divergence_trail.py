@@ -1,17 +1,14 @@
-from .utils import FEE_RATE, rsi, sma, detect_bullish_divergence, build_result
+from .utils import FEE_RATE, sma, detect_bullish_divergence, build_result, calc_rsi_series_from_closes
 
 
 def _build_rsi_series(data, period):
     """
-    전체 캔들에 대해 RSI 시계열을 미리 계산.
-    워밍업 구간(RSI None)은 -1로 채워 detect_bullish_divergence의 rsi_warmup 필터가
-    해당 저점을 배제하도록 한다. (50.0으로 채우면 실제 RSI가 낮을 때 비교가 역전됨)
+    전체 캔들에 대해 RSI 시계열을 미리 계산. O(n) 단일 패스.
+    워밍업 구간(None)은 -1로 채워 detect_bullish_divergence rsi_warmup 필터가 배제하도록 한다.
     """
     closes = [c["trade_price"] for c in data]
-    rsi_series = []
-    for i in range(len(closes)):
-        r = rsi(closes[:i + 1], period)
-        rsi_series.append(r if r is not None else -1.0)
+    raw = calc_rsi_series_from_closes(closes, period)
+    rsi_series = [r if r is not None else -1.0 for r in raw]
     return closes, rsi_series
 
 

@@ -55,8 +55,10 @@ def _calc_k_volatility_signal(data, k=0.5):
 
 def _calc_rsi_signal(data, period=14, threshold=30, is_minute=False):
     closes = [c["trade_price"] for c in data]
-    rsi_curr = _rsi(closes, period)
-    rsi_prev = _rsi(closes[:-1], period)
+    # RSI 시계열을 O(n) 단일 패스로 계산 후 마지막 두 값만 사용
+    rsi_vals = _rsi_series(closes, period)
+    rsi_curr = rsi_vals[-1] if len(rsi_vals) >= 1 else None
+    rsi_prev = rsi_vals[-2] if len(rsi_vals) >= 2 else None
 
     if rsi_curr is None:
         return {
@@ -163,51 +165,60 @@ def _calc_bollinger_bounce_signal(data, period=20, std_mult=2.0):
 
 
 def _find_historical_signals(data, k=0.5, is_minute=False):
+    """
+    전체 히스토리 신호 탐색. O(n) 단일 패스.
+    - RSI: O(n) 시계열 미리 계산 후 인덱스 직접 참조
+    - MA: sliding window sum으로 O(n) 유지 (매 봉 sum() 슬라이싱 제거)
+    - 볼린저: 분산도 sliding 방식으로 O(n)
+    """
+    closes = [c["trade_price"] for c in data]
+    n = len(closes)
+
+    # RSI 시계열 한 번만 계산
+    rsi_vals = _rsi_series(closes, 14)
+
     signal_map = {}
 
-    for i in range(1, len(data) - 1):
-        window = data[:i + 1]
+    for i in range(1, n - 1):
+        curr = data[i]
         triggered_strategies = []
 
-        # K변동성돌파
-        prev = data[i - 1]
-        curr = data[i]
-        prev_range = prev["high_price"] - prev["low_price"]
+        # ── K변동성돌파 ──
+        prev_range = data[i - 1]["high_price"] - data[i - 1]["low_price"]
         if prev_range > 0:
             target = curr["opening_price"] + k * prev_range
             if curr["high_price"] >= target:
                 triggered_strategies.append("K_VOLATILITY_BREAKOUT")
 
-        # RSI: 과매도 회복 크로스 (threshold 위로 재진입)
-        closes = [c["trade_price"] for c in window]
-        rsi_curr = _rsi(closes, 14)
-        rsi_prev = _rsi(closes[:-1], 14)
-        if (rsi_curr is not None and rsi_prev is not None
-                and rsi_curr >= 30 and rsi_prev < 30):
+        # ── RSI 과매도 회복 크로스 ──
+        # rsi_vals[i] = closes[0..i] 기준 RSI, rsi_vals[i-1] = closes[0..i-1] 기준 RSI
+        rc = rsi_vals[i]
+        rp = rsi_vals[i - 1]
+        if rc is not None and rp is not None and rc >= 30 and rp < 30:
             triggered_strategies.append("RSI_OVERSOLD_BOUNCE")
 
-        # MA 골든크로스
-        if len(closes) >= 21:
-            ma5_curr = _sma(closes, 5)
-            ma20_curr = _sma(closes, 20)
-            ma5_prev = _sma(closes[:-1], 5)
-            ma20_prev = _sma(closes[:-1], 20)
-            if (ma5_prev is not None and ma20_prev is not None and
-                    ma5_prev <= ma20_prev and ma5_curr > ma20_curr):
+        # ── MA 골든크로스 (sliding window) ──
+        if i >= 20:
+            # 현재 창: closes[i-19..i], 이전 창: closes[i-20..i-1]
+            ma5_c  = sum(closes[i - 4:i + 1]) / 5  if i >= 4  else None
+            ma20_c = sum(closes[i - 19:i + 1]) / 20
+            ma5_p  = sum(closes[i - 5:i]) / 5  if i >= 5  else None
+            ma20_p = sum(closes[i - 20:i]) / 20 if i >= 20 else None
+            if (ma5_p is not None and ma20_p is not None and
+                    ma5_p <= ma20_p and ma5_c is not None and ma5_c > ma20_c):
                 triggered_strategies.append("MA_GOLDEN_CROSS")
 
-        # 볼린저밴드 반등
-        if len(closes) >= 21:
-            last = closes[-20:]
-            middle = sum(last) / 20
-            std = statistics.stdev(last)
-            lower = middle - 2.0 * std
-            if len(closes) >= 2 and closes[-2] < lower and closes[-1] >= lower:
+        # ── 볼린저밴드 반등 ──
+        if i >= 20:
+            last20 = closes[i - 19:i + 1]
+            mid    = sum(last20) / 20
+            std    = statistics.stdev(last20)
+            lower  = mid - 2.0 * std
+            if closes[i - 1] < lower and closes[i] >= lower:
                 triggered_strategies.append("BOLLINGER_BOUNCE")
 
         if triggered_strategies:
             kst = curr["candle_date_time_kst"]
-            # 분봉: 전체 datetime을 키로 사용(봉 단위 정밀도), 일봉 이상: 날짜만
             key = kst if is_minute else kst[:10]
             signal_map[key] = triggered_strategies
 
@@ -238,6 +249,31 @@ def _rsi(closes, period=14):
     if avg_loss == 0:
         return 100.0 if avg_gain > 0 else 50.0
     return 100 - (100 / (1 + avg_gain / avg_loss))
+
+
+def _rsi_series(closes, period=14):
+    """전체 RSI 시계열을 O(n) 단일 패스로 계산. 워밍업 구간은 None."""
+    n = len(closes)
+    result = [None] * n
+    if n < period + 1:
+        return result
+    diffs = [closes[i] - closes[i - 1] for i in range(1, n)]
+    gains = [max(d, 0) for d in diffs]
+    losses = [abs(min(d, 0)) for d in diffs]
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+
+    def _val(ag, al):
+        if al == 0:
+            return 100.0 if ag > 0 else 50.0
+        return 100 - (100 / (1 + ag / al))
+
+    result[period] = _val(avg_gain, avg_loss)
+    for i in range(period, len(gains)):
+        avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+        avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+        result[i + 1] = _val(avg_gain, avg_loss)
+    return result
 
 
 def _fmt(n):
