@@ -1,9 +1,9 @@
 const STRATEGY_NAMES = {
   K_VOLATILITY_BREAKOUT: "K변동성 돌파",
+  TRAILING_BREAKOUT:     "트레일링 스탑 돌파",
   RSI_OVERSOLD_BOUNCE:   "RSI 과매도 반등",
   MA_GOLDEN_CROSS:       "MA 골든크로스",
   BOLLINGER_BOUNCE:      "볼린저밴드 반등",
-  TRAILING_BREAKOUT:     "트레일링 스탑 돌파",
 };
 
 const STRATEGY_OVERVIEW = {
