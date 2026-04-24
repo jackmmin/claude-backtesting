@@ -20,15 +20,12 @@ async function refreshKeyStatus() {
       const fileName = raw === "-" ? raw : raw.replace(/^.*[/\\]/, "");
       pathEl.textContent = fileName;
     }
-    [
-      { id: "ltKeyStatusBalance",    has: d.has_balance },
-      { id: "ltKeyStatusOrderQuery", has: d.has_order_query },
-      { id: "ltKeyStatusOrder",      has: d.has_order },
-    ].forEach(({ id, has }) => {
+    // 키 파일 설정 여부와 무관하게 연결테스트 전에는 항상 ✗ 표시
+    ["ltKeyStatusBalance", "ltKeyStatusOrderQuery", "ltKeyStatusOrder"].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
-      el.textContent = has ? "✓" : "미설정";
-      el.style.color = has ? "#3fb950" : "#f85149";
+      el.textContent = "✗";
+      el.style.color  = "#f85149";
     });
 
     _keysAllSet = !!d.has_all;
