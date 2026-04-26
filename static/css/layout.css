@@ -1,0 +1,104 @@
+/* 레이아웃 기본 구조 */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: 'Segoe UI', sans-serif;
+  min-height: 100vh;
+}
+
+header {
+  background: #161b22;
+  border-bottom: 1px solid #30363d;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+header h1 {
+  font-size: 1.3rem;
+  color: #58a6ff;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+}
+
+.upbit-badge {
+  background: #1c6ef3;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 1px;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 32px;
+}
+
+footer {
+  text-align: center;
+  color: #8b949e;
+  font-size: 0.78rem;
+  padding: 24px;
+  margin-top: 12px;
+}
+
+/* ── 탭 ── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #30363d;
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #8b949e;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  border-radius: 0;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab-btn:hover { color: #e6edf3; border-color: #58a6ff; }
+.tab-btn.active { color: #58a6ff; border-color: #58a6ff; }
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── 탭 비활성화 ── */
+.tab-btn.disabled-clickable {
+  opacity: 0.45;
+  cursor: not-allowed;
+  color: #8b949e;
+}
+
+/* ── 토스트 알림 ── */
+#toast {
+  position: fixed;
+  top: 36px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: #21262d;
+  border: 1px solid #f85149;
+  color: #f85149;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  z-index: 9999;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

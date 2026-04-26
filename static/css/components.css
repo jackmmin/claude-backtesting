@@ -1,0 +1,266 @@
+/* 공통 컴포넌트 — 차트, 컨트롤, 티커, 테이블, 백테스팅 */
+
+.controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+select, button {
+  background: #161b22;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+select:hover, button:hover { border-color: #58a6ff; }
+select:focus, button:focus { outline: none; border-color: #58a6ff; }
+
+button.active {
+  background: #1c6ef3;
+  border-color: #1c6ef3;
+  color: #fff;
+}
+
+/* ── 티커바 ── */
+.ticker-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ticker-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+
+.ticker-card .label { font-size: 0.75rem; color: #8b949e; margin-bottom: 4px; }
+.ticker-card .value { font-size: 1.15rem; font-weight: 700; }
+
+.value.up      { color: #3fb950; }
+.value.down    { color: #f85149; }
+.value.neutral { color: #e6edf3; }
+
+/* ── 차트 ── */
+.chart-wrap {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 24px;
+  position: relative;
+}
+
+.chart-resize-handle {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 0 12px 12px;
+  transition: background 0.15s;
+  z-index: 5;
+}
+.chart-resize-handle:hover { background: rgba(88,166,255,0.12); }
+.chart-resize-handle::after {
+  content: "";
+  width: 36px;
+  height: 3px;
+  background: #30363d;
+  border-radius: 2px;
+  transition: background 0.15s;
+}
+.chart-resize-handle:hover::after { background: #58a6ff; }
+
+.chart-wrap #chart { height: 480px; }
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(13,17,23,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  color: #8b949e;
+  z-index: 10;
+}
+.loading-overlay.hidden { display: none; }
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #30363d;
+  border-top-color: #58a6ff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-right: 10px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── 백테스팅 컨트롤 ── */
+.bt-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.bt-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8b949e;
+  font-size: 0.88rem;
+}
+.bt-controls input[type=range] { accent-color: #58a6ff; width: 120px; }
+.bt-controls input[type=number],
+.bt-controls input[type=text] {
+  background: #161b22;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  width: 80px;
+  text-align: center;
+}
+.bt-controls input[type=number].wide,
+.bt-controls input[type=text].wide { width: 140px; }
+.bt-controls input[type=number]:focus,
+.bt-controls input[type=text]:focus { outline: none; border-color: #58a6ff; }
+
+#kValueDisplay { min-width: 30px; color: #e6edf3; font-weight: 700; }
+
+.bt-run-btn { background: #1c6ef3; border-color: #1c6ef3; color: #fff; font-weight: 600; }
+.bt-run-btn:hover { background: #388bfd; border-color: #388bfd; }
+.bt-run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.param-panel {
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 4px;
+}
+.param-panel.active { display: flex; }
+.param-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.param-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #58a6ff;
+  letter-spacing: 0.6px;
+  min-width: 60px;
+  text-transform: uppercase;
+}
+.param-divider { width: 1px; height: 16px; background: #30363d; margin: 0 2px; }
+
+/* ── 신호 박스 ── */
+.signal-box {
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.signal-box.triggered  { background: rgba(63,185,80,0.1); border: 1px solid #3fb950; }
+.signal-box.in-trade   { background: rgba(88,166,255,0.08); border: 1px solid #58a6ff; }
+.signal-box.waiting,
+.signal-box.neutral    { background: rgba(139,148,158,0.08); border: 1px solid #30363d; }
+
+.signal-badge {
+  font-size: 1.1rem;
+  font-weight: 800;
+  padding: 6px 18px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.signal-badge.triggered { background: #3fb950; color: #0d1117; }
+.signal-badge.in-trade  { background: #58a6ff; color: #0d1117; }
+.signal-badge.waiting,
+.signal-badge.neutral   { background: #30363d; color: #8b949e; }
+.signal-badge.long      { background: #3fb950; color: #0d1117; }
+.signal-badge.wait      { background: #30363d; color: #8b949e; }
+
+.signal-detail { font-size: 0.88rem; color: #8b949e; line-height: 1.7; }
+.signal-detail span { color: #e6edf3; font-weight: 600; }
+.signal-row { display: flex; gap: 8px; align-items: center; }
+.signal-label { color: #8b949e; min-width: 140px; }
+.signal-value { color: #e6edf3; font-weight: 600; }
+
+/* ── 백테스팅 통계 ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.stat-card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+.stat-card .s-label { font-size: 0.75rem; color: #8b949e; margin-bottom: 4px; }
+.stat-card .s-value { font-size: 1.2rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.s-value.money   { font-size: 0.95rem; }
+.s-value.pos     { color: #3fb950; }
+.s-value.neg     { color: #f85149; }
+.s-value.neutral { color: #e6edf3; }
+
+/* ── 거래 테이블 ── */
+.trades-table-wrap {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  overflow: hidden;
+}
+.trades-table-wrap h3 {
+  padding: 14px 18px;
+  font-size: 0.9rem;
+  color: #8b949e;
+  border-bottom: 1px solid #30363d;
+  font-weight: 600;
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+th {
+  padding: 10px 14px;
+  color: #8b949e;
+  font-weight: 500;
+  text-align: right;
+  border-bottom: 1px solid #21262d;
+}
+th:first-child { text-align: left; }
+td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #21262d;
+  text-align: right;
+  color: #e6edf3;
+}
+td:first-child { text-align: left; color: #8b949e; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(88,166,255,0.04); }
+
+#btLoadingMsg { text-align: center; padding: 40px; color: #8b949e; display: none; }
+#btResult { display: none; }

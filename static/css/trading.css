@@ -1,0 +1,90 @@
+/* 실시간 매매 탭 전용 스타일 */
+
+.lt-section {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 20px 24px;
+  margin-bottom: 16px;
+}
+.lt-section h3 {
+  font-size: 0.88rem;
+  color: #8b949e;
+  font-weight: 600;
+  margin-bottom: 14px;
+  letter-spacing: 0.3px;
+}
+.lt-form-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.lt-form-row:last-child { margin-bottom: 0; }
+.lt-label { font-size: 0.85rem; color: #8b949e; min-width: 100px; }
+.lt-input {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  color: #e6edf3;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  flex: 1;
+  min-width: 180px;
+  max-width: 320px;
+}
+.lt-input:focus { outline: none; border-color: #58a6ff; }
+
+.lt-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.2s;
+}
+.lt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.lt-btn-test  { background: #30363d; color: #e6edf3; }
+.lt-btn-test:hover:not(:disabled)  { background: #3d444d; }
+.lt-btn-start { background: #3fb950; color: #0d1117; }
+.lt-btn-start:hover:not(:disabled) { background: #57c96c; }
+.lt-btn-stop  { background: #f85149; color: #fff; }
+.lt-btn-stop:hover:not(:disabled)  { background: #ff6b63; }
+
+.lt-warning {
+  background: rgba(248,81,73,0.08);
+  border: 1px solid rgba(248,81,73,0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.8rem;
+  color: #f85149;
+  margin-bottom: 16px;
+  line-height: 1.6;
+}
+
+.lt-position-card {
+  background: rgba(88,166,255,0.06);
+  border: 1px solid #1c6ef3;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.lt-position-card.empty { background: rgba(139,148,158,0.06); border-color: #30363d; }
+
+.lt-pos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.lt-pos-item .lt-pos-label { font-size: 0.72rem; color: #8b949e; margin-bottom: 3px; }
+.lt-pos-item .lt-pos-value { font-size: 1rem; font-weight: 700; }
+
+.lt-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.lt-status-dot.on  { background: #3fb950; box-shadow: 0 0 6px #3fb950; }
+.lt-status-dot.off { background: #8b949e; }
+
+.lt-slider { accent-color: #58a6ff; width: 120px; }
