@@ -27,7 +27,7 @@ function renderCurrentSignal(sig, strategy, fmt) {
     signalBadge.textContent = "대기 중";
   }
 
-  let html = `<div class="signal-row"><span class="signal-label">날짜</span><span class="signal-value">${sig.date}</span></div>`;
+  let html = `<div class="signal-row"><span class="signal-label">날짜</span><span class="signal-value">${sig.date.replace("T", " ")}</span></div>`;
   if (strategy === "K_VOLATILITY_BREAKOUT") {
     html += `
       <div class="signal-row"><span class="signal-label">시가</span><span class="signal-value">${fmt(sig.open)} ₩</span></div>

@@ -39,7 +39,8 @@ function renderBtCandleChart(d) {
   if (d.trade_markers && d.trade_markers.length > 0) {
     const markers = [];
     for (const m of d.trade_markers) {
-      if (m.buy_datetime)  markers.push({ time: toChartTime(m.buy_datetime),  position: "belowBar", color: "#3fb950", shape: "arrowUp",   text: "B" });
+      // sell_datetime이 없으면 보유중 진입 마커 (주황색)
+      if (m.buy_datetime)  markers.push({ time: toChartTime(m.buy_datetime),  position: "belowBar", color: m.sell_datetime ? "#3fb950" : "#e3b341", shape: "arrowUp",   text: "B" });
       if (m.sell_datetime) markers.push({ time: toChartTime(m.sell_datetime), position: "aboveBar", color: m.win ? "#3fb950" : "#f85149", shape: "arrowDown", text: "S" });
     }
     markers.sort((a, b) => a.time - b.time);

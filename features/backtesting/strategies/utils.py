@@ -249,6 +249,13 @@ def build_result(strategy, trades, initial_capital, current_signal, candles=None
         for t in trades
         if "buy_datetime" in t and t.get("sell_datetime")
     ]
+    # 보유중인 open trade의 진입 마커도 포함
+    if open_trade is not None and open_trade.get("buy_datetime"):
+        trade_markers.append({
+            "buy_datetime": open_trade["buy_datetime"],
+            "sell_datetime": None,
+            "win": None,
+        })
 
     displayed = trades[-50:]
     if open_trade is not None:
