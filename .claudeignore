@@ -1,7 +1,0 @@
-**/node_modules/
-**/logs/
-**/README*
-**/__pycache__/
-**/*.pyc
-백테스팅 전략별 타이밍 판단 기준.txt
-UPDATE_HISTORY.md

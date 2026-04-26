@@ -1,6 +1,5 @@
 ### 🚀
-[![Update History](https://img.shields.io/badge/Update_History-View_LOG-orange
-)](./UPDATE_HISTORY.md)
+[![Update History](https://img.shields.io/badge/UPDATE_HISTORY-Link-orange)](./UPDATE_HISTORY.md)
 
 ---
 
