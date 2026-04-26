@@ -1,4 +1,4 @@
-### 🚀
+### UPDATE_HISTORY
 [![Update History](https://img.shields.io/badge/UPDATE_HISTORY-Link-orange)](./UPDATE_HISTORY.md)
 
 ---
