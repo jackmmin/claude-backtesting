@@ -14,32 +14,46 @@ _EMPTY_STATE = {
     "trades": [],
     "daily_trade_count": {},
     "initial_capital": None,
-    "last_event": None,  # 스케줄러 마지막 이벤트 {type, message, timestamp}
+    "last_event": None,
 }
 
+# 메모리 캐시 — 파일 읽기를 최소화
+_state_cache: dict | None = None
+_config_cache: dict | None = None
 
-def _read_state():
+
+def _read_state() -> dict:
+    global _state_cache
+    if _state_cache is not None:
+        return _state_cache
+
     path = os.path.abspath(STATE_PATH)
     if not os.path.exists(path):
-        return dict(_EMPTY_STATE)
+        _state_cache = dict(_EMPTY_STATE)
+        return _state_cache
+
     with open(path, "r", encoding="utf-8") as f:
         state = json.load(f)
+
     # v1.0 → v1.1 마이그레이션: current_position → auto_position
     if "current_position" in state and "auto_position" not in state:
         state["auto_position"] = state.pop("current_position")
         state["manual_position"] = None
         state["version"] = "1.1"
-    return state
+
+    _state_cache = state
+    return _state_cache
 
 
-def _write_state(state):
+def _write_state(state: dict):
+    global _state_cache
     state["last_updated"] = datetime.now().isoformat()
     with open(os.path.abspath(STATE_PATH), "w", encoding="utf-8") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
+    _state_cache = state  # 캐시 갱신
 
 
 def get_position(source: str = "auto") -> dict | None:
-    # source: "auto" | "manual"
     key = "auto_position" if source == "auto" else "manual_position"
     return _read_state().get(key)
 
@@ -146,13 +160,19 @@ def increment_daily_trade_count(date_str: str):
 
 
 def save_config(config_dict: dict):
+    global _config_cache
     with open(os.path.abspath(CONFIG_PATH), "w", encoding="utf-8") as f:
         json.dump(config_dict, f, ensure_ascii=False, indent=2)
+    _config_cache = config_dict
 
 
 def load_config() -> dict | None:
+    global _config_cache
+    if _config_cache is not None:
+        return _config_cache
     path = os.path.abspath(CONFIG_PATH)
     if not os.path.exists(path):
         return None
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        _config_cache = json.load(f)
+    return _config_cache

@@ -85,10 +85,8 @@ def _calc_rsi_signal(data, period=14, threshold=30, is_minute=False):
 
 def _calc_ma_golden_cross_signal(data):
     closes = [c["trade_price"] for c in data]
-    ma5 = _sma(closes, 5)
-    ma20 = _sma(closes, 20)
-
-    if ma5 is None or ma20 is None:
+    n = len(closes)
+    if n < 20:
         return {
             "strategy": "MA_GOLDEN_CROSS",
             "name": "골든크로스",
@@ -97,17 +95,18 @@ def _calc_ma_golden_cross_signal(data):
             "details": {"ma5": None, "ma20": None, "cross_candles_ago": None},
         }
 
+    # 슬라이싱 없이 인덱스 직접 참조 — 최근 봉 3개만 확인
+    ma5  = sum(closes[n - 5:n])  / 5
+    ma20 = sum(closes[n - 20:n]) / 20
+
     cross_candles_ago = None
-    for i in range(1, min(4, len(closes))):
-        idx = len(closes) - i
-        if idx < 20:
-            break
-        ma5_before = _sma(closes[:idx], 5)
-        ma20_before = _sma(closes[:idx], 20)
-        ma5_after = _sma(closes[:idx + 1], 5)
-        ma20_after = _sma(closes[:idx + 1], 20)
-        if (ma5_before is not None and ma20_before is not None and
-                ma5_before <= ma20_before and ma5_after > ma20_after):
+    for i in range(1, min(4, n - 19)):
+        e = n - i          # 현재 창 끝 (exclusive)
+        ma5_c  = sum(closes[e - 5:e])   / 5
+        ma20_c = sum(closes[e - 20:e])  / 20
+        ma5_p  = sum(closes[e - 6:e - 1]) / 5
+        ma20_p = sum(closes[e - 21:e - 1]) / 20
+        if ma5_p <= ma20_p and ma5_c > ma20_c:
             cross_candles_ago = i - 1
             break
 

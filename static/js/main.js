@@ -50,7 +50,17 @@ updateStrategyDesc();
 updateLtStrategyDesc();
 refreshKeyStatus();
 
-setInterval(() => {
+// 탭이 숨겨져 있으면 폴링 건너뜀 (불필요한 서버 요청 방지)
+let _tickerTimer = setInterval(() => {
+  if (document.hidden) return;
   const market = document.getElementById("marketSelect").value;
   if (market) loadTicker(market);
 }, 30000);
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    // 탭 복귀 시 즉시 갱신
+    const market = document.getElementById("marketSelect").value;
+    if (market) loadTicker(market);
+  }
+});

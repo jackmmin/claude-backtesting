@@ -11,15 +11,31 @@ MAX_KRW_PER_TRADE = 50_000_000
 MAX_DAILY_TRADES = 20
 
 
-def sync_untracked_positions(config: TradingConfig) -> list:
-    """업비트 보유 코인 중 auto/manual 포지션으로 미추적된 코인을 수동 포지션으로 자동 등록.
-    manual_position이 이미 있으면 덮어쓰지 않는다."""
-    try:
-        accounts = upbit.get_accounts(config.balance_access_key, config.balance_secret_key)
-    except Exception:
-        return []
+def _parse_balance(accounts: list) -> dict:
+    """accounts 응답에서 잔액 dict 생성 (get_accounts 재호출 없이 재사용)"""
+    krw = next((a for a in accounts if a["currency"] == "KRW"), None)
+    return {
+        "krw_balance": float(krw["balance"]) if krw else 0,
+        "krw_locked": float(krw.get("locked", 0)) if krw else 0,
+        "holdings": {
+            a["currency"]: float(a["balance"])
+            for a in accounts if a["currency"] != "KRW" and float(a["balance"]) > 0
+        },
+    }
 
-    auto_pos = sm.get_position(source="auto")
+
+def sync_untracked_positions(config: TradingConfig, accounts: list | None = None) -> tuple[list, list]:
+    """업비트 보유 코인 중 auto/manual 포지션으로 미추적된 코인을 수동 포지션으로 자동 등록.
+    accounts를 외부에서 전달하면 get_accounts를 재호출하지 않는다.
+    반환: (등록된 마켓 목록, accounts)
+    """
+    if accounts is None:
+        try:
+            accounts = upbit.get_accounts(config.balance_access_key, config.balance_secret_key)
+        except Exception:
+            return [], []
+
+    auto_pos   = sm.get_position(source="auto")
     manual_pos = sm.get_position(source="manual")
 
     tracked = set()
@@ -56,21 +72,14 @@ def sync_untracked_positions(config: TradingConfig) -> list:
         tracked.add(market)
         registered.append(market)
 
-    return registered
+    return registered, accounts
 
 
-def get_balance(config: TradingConfig) -> dict:
-    """KRW 잔액 및 보유 코인 조회"""
-    accounts = upbit.get_accounts(config.balance_access_key, config.balance_secret_key)
-    krw = next((a for a in accounts if a["currency"] == "KRW"), None)
-    return {
-        "krw_balance": float(krw["balance"]) if krw else 0,
-        "krw_locked": float(krw.get("locked", 0)) if krw else 0,
-        "holdings": {
-            a["currency"]: float(a["balance"])
-            for a in accounts if a["currency"] != "KRW" and float(a["balance"]) > 0
-        },
-    }
+def get_balance(config: TradingConfig, accounts: list | None = None) -> dict:
+    """KRW 잔액 및 보유 코인 조회. accounts를 전달하면 get_accounts를 재호출하지 않는다."""
+    if accounts is None:
+        accounts = upbit.get_accounts(config.balance_access_key, config.balance_secret_key)
+    return _parse_balance(accounts)
 
 
 def get_position_pnl(config: TradingConfig, current_price: float, source: str = "auto") -> dict | None:

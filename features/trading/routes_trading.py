@@ -125,10 +125,23 @@ def get_status():
         from exchanges.upbit.ticker import get_ticker
         config = _build_config(saved)
 
-        # 업비트 보유 코인 중 미추적 포지션을 수동 포지션으로 자동 등록
-        trading_service.sync_untracked_positions(config)
-        auto_position   = sm.get_position(source="auto")
-        manual_position = sm.get_position(source="manual")
+        # accounts 한 번만 조회 → sync와 balance에서 재사용
+        try:
+            from exchanges.upbit import private_client as upbit
+            accounts = upbit.get_accounts(config.balance_access_key, config.balance_secret_key)
+        except Exception:
+            accounts = None
+
+        if accounts is not None:
+            # 업비트 보유 코인 중 미추적 포지션을 수동 포지션으로 자동 등록
+            trading_service.sync_untracked_positions(config, accounts=accounts)
+            auto_position   = sm.get_position(source="auto")
+            manual_position = sm.get_position(source="manual")
+
+            try:
+                balance_info = trading_service.get_balance(config, accounts=accounts)
+            except Exception:
+                balance_info = None
 
         if auto_position:
             ticker = get_ticker(auto_position["market"])
@@ -139,11 +152,6 @@ def get_status():
             ticker = get_ticker(manual_position["market"])
             if ticker:
                 manual_pnl_info = trading_service.get_position_pnl(config, ticker[0]["trade_price"], source="manual")
-
-        try:
-            balance_info = trading_service.get_balance(config)
-        except Exception:
-            balance_info = None
 
     return jsonify({
         "scheduler": scheduler_status,
