@@ -4,9 +4,6 @@
     "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
   },
   "permissions": {
-    "deny": [
-      "Read(D:/claude-code/claude-coin/logs/LOG.md)"
-    ],
     "allow": [
       "Bash(git fetch *)",
       "Bash(node -e \"require\\('./routes/upbit'\\); require\\('./api/upbit/index'\\); console.log\\('모듈 로드 성공'\\)\")",
@@ -26,7 +23,11 @@
       "Bash(curl -s \"http://localhost:5000/api/indicators?market=KRW-BTC&interval=days&count=30\")",
       "Bash(curl -v \"http://localhost:5000/api/indicators?market=KRW-BTC&interval=days&count=30\")",
       "Bash(pkill -f \"python app.py\")",
-      "Bash(powershell -command \"Get-Process python | Stop-Process -Force\")"
+      "Bash(powershell -command \"Get-Process python | Stop-Process -Force\")",
+      "Bash(git rm *)"
+    ],
+    "deny": [
+      "Read(D:/claude-code/claude-coin/logs/LOG.md)"
     ]
   },
   "model": "sonnet"
