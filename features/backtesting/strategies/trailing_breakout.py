@@ -64,25 +64,20 @@ def run(data, k=0.5, initial_capital=1000000,
             continue  # 당일 목표가 미돌파
 
         buy_cost = target * (1 + FEE_RATE)
-        sl_price = target * (1 + tb_sl)          # 고정 손절가
-        trail_gap = target * tb_trail             # 트레일링 갭 (절대값)
-
-        # 캔들 내 고점/저점으로 청산 시뮬레이션
-        # 진입 후 고점을 갱신하며 트레일링, 저점이 트레일 또는 손절에 닿으면 청산
-        high_after_entry = target                 # 진입 후 최고점
-        raw_sell = curr["trade_price"]            # 기본 청산가 = 당일 종가
+        sl_price = target * (1 + tb_sl)   # 고정 손절가
+        trail_gap = target * tb_trail     # 트레일링 갭 (절대값)
 
         curr_high = curr["high_price"]
         curr_low  = curr["low_price"]
 
-        # 고점 갱신 후 트레일 스탑 적용 (캔들 내 보수적 시뮬레이션)
-        high_after_entry = max(high_after_entry, curr_high)
-        trail_stop = high_after_entry - trail_gap
+        # curr_high >= target 이 이미 보장된 상태이므로 바로 사용
+        trail_stop = curr_high - trail_gap
+        raw_sell = curr["trade_price"]  # 기본 청산가 = 당일 종가
 
         if curr_low <= sl_price:
             # 손절 먼저 (타이트한 손실 제한)
             raw_sell = sl_price
-        elif curr_low <= trail_stop and trail_stop > target:
+        elif trail_stop > target and curr_low <= trail_stop:
             # 트레일링 스탑 (수익 구간에서만 작동)
             raw_sell = trail_stop
         # else: 당일 종가로 마감

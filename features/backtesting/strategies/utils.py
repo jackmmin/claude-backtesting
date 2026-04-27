@@ -163,27 +163,28 @@ def build_result(strategy, trades, initial_capital, current_signal, candles=None
     ma_lines = []
     if candles:
         closes = [c["trade_price"] for c in candles]
-        # K변동성돌파: 3개 MA 필터
-        for key_f, key_p in [("k_ma1_filter", "k_ma1_period"),
-                              ("k_ma2_filter", "k_ma2_period"),
-                              ("k_ma3_filter", "k_ma3_period")]:
+
+        # 전략별 MA 필터 키 매핑 (필터 활성화 키, 기간 키)
+        ma_filter_keys = [
+            ("k_ma1_filter", "k_ma1_period"),    # K변동성돌파 MA1
+            ("k_ma2_filter", "k_ma2_period"),    # K변동성돌파 MA2
+            ("k_ma3_filter", "k_ma3_period"),    # K변동성돌파 MA3
+            ("tb_ma1_filter", "tb_ma1_period"),  # 트레일링돌파 MA1
+            ("tb_ma2_filter", "tb_ma2_period"),  # 트레일링돌파 MA2
+            ("rsi_ma_filter", "rsi_ma_period"),  # RSI과매도 MA
+            ("rdi_ma_filter", "rdi_ma_period"),  # RSI다이버전스 MA
+        ]
+        seen_periods = set()  # 동일 기간 MA 중복 계산 방지
+        for key_f, key_p in ma_filter_keys:
             if extra.get(key_f):
                 period = extra.get(key_p)
-                if period:
+                if period and period not in seen_periods:
+                    seen_periods.add(period)
                     ma_values = [
                         round(sum(closes[i - period + 1:i + 1]) / period) if i >= period - 1 else None
                         for i in range(len(closes))
                     ]
                     ma_lines.append({"period": period, "data": ma_values})
-        # RSI 전략: 단일 MA 필터
-        if extra.get("rsi_ma_filter"):
-            period = extra.get("rsi_ma_period")
-            if period:
-                ma_values = [
-                    round(sum(closes[i - period + 1:i + 1]) / period) if i >= period - 1 else None
-                    for i in range(len(closes))
-                ]
-                ma_lines.append({"period": period, "data": ma_values})
 
     # RSI 시계열 및 다이버전스 저점 계산 (RSI 관련 전략에서만)
     rsi_line = []
