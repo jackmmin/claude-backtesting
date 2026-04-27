@@ -229,6 +229,12 @@ def build_result(strategy, trades, initial_capital, current_signal, candles=None
     if not trades:
         if open_trade is not None:
             base["trades"] = [open_trade]
+            if open_trade.get("buy_datetime"):
+                base["trade_markers"] = [{
+                    "buy_datetime": open_trade["buy_datetime"],
+                    "sell_datetime": None,
+                    "win": None,
+                }]
         return base
 
     wins = sum(1 for t in trades if t["win"])
