@@ -24,4 +24,11 @@ def index():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    # DEPLOY_MODE=cloud 환경변수가 설정된 경우 클라우드 모드로 실행
+    import os
+    is_cloud = os.environ.get("DEPLOY_MODE") == "cloud"
+    app.run(
+        debug=not is_cloud,
+        host="0.0.0.0" if is_cloud else "127.0.0.1",
+        port=int(os.environ.get("PORT", 5000)),
+    )

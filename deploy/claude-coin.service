@@ -1,0 +1,18 @@
+[Unit]
+Description=Claude Coin - 자동매매 서버
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/claude-coin
+Environment="DEPLOY_MODE=cloud"
+Environment="PORT=5000"
+ExecStart=/home/ubuntu/claude-coin/venv/bin/python app.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
