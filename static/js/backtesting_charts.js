@@ -82,6 +82,58 @@ function renderBtCandleChart(d) {
 
   btLwChart.timeScale().fitContent();
 
+  // OHLC 툴팁: 크로스헤어 이동 시 봉 정보 표시
+  let ohlcTooltip = document.getElementById("btOhlcTooltip");
+  if (!ohlcTooltip) {
+    ohlcTooltip = document.createElement("div");
+    ohlcTooltip.id = "btOhlcTooltip";
+    ohlcTooltip.style.cssText = [
+      "position:absolute", "z-index:100", "pointer-events:none",
+      "background:#161b22", "border:1px solid #30363d", "border-radius:6px",
+      "padding:8px 12px", "font-size:12px", "line-height:1.8",
+      "color:#e6edf3", "white-space:nowrap", "display:none",
+    ].join(";");
+    container.style.position = "relative";
+    container.appendChild(ohlcTooltip);
+  }
+
+  // 캔들 데이터를 time → OHLCV 맵으로 구성
+  const candleMap = new Map(d.candles.map(c => [toChartTime(c.t), c]));
+
+  btLwChart.subscribeCrosshairMove(param => {
+    if (!param || !param.time || !param.point) {
+      ohlcTooltip.style.display = "none";
+      return;
+    }
+    const c = candleMap.get(param.time);
+    if (!c) { ohlcTooltip.style.display = "none"; return; }
+
+    const fmt   = v => Number(v).toLocaleString("ko-KR");
+    const isUp  = c.c >= c.o;
+    const color = isUp ? "#3fb950" : "#f85149";
+    const chg   = ((c.c - c.o) / c.o * 100).toFixed(2);
+    const sign  = isUp ? "+" : "";
+
+    ohlcTooltip.innerHTML = `
+      <span style="color:#8b949e">시가</span> <span style="color:${color}">${fmt(c.o)}</span> &nbsp;
+      <span style="color:#8b949e">고가</span> <span style="color:#3fb950">${fmt(c.h)}</span><br>
+      <span style="color:#8b949e">저가</span> <span style="color:#f85149">${fmt(c.l)}</span> &nbsp;
+      <span style="color:#8b949e">종가</span> <span style="color:${color}">${fmt(c.c)}</span><br>
+      <span style="color:#8b949e">등락</span> <span style="color:${color}">${sign}${chg}%</span> &nbsp;
+      <span style="color:#8b949e">거래량</span> <span style="color:#8b949e">${fmt(c.v || 0)}</span>
+    `.trim();
+
+    // 툴팁 위치: 우측 공간이 부족하면 좌측으로
+    const rect = container.getBoundingClientRect();
+    const ttW  = 260;
+    const left = param.point.x + 16 + ttW > container.clientWidth
+      ? param.point.x - ttW - 8
+      : param.point.x + 16;
+    ohlcTooltip.style.left    = `${left}px`;
+    ohlcTooltip.style.top     = `${Math.max(4, param.point.y - 40)}px`;
+    ohlcTooltip.style.display = "block";
+  });
+
   new ResizeObserver(() => {
     if (btLwChart) btLwChart.applyOptions({ width: container.clientWidth, height: container.clientHeight || 400 });
   }).observe(container);
