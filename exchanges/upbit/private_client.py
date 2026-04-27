@@ -4,6 +4,9 @@ from .auth import get_auth_headers
 
 BASE_URL = "https://api.upbit.com/v1"
 
+# 인증 요청용 세션 — Authorization 헤더는 요청마다 달라지므로 여기선 설정하지 않음
+_session = requests.Session()
+
 
 class UpbitAPIError(Exception):
     def __init__(self, message, status_code=None):
@@ -17,11 +20,11 @@ def _request(method, path, access_key, secret_key, params=None):
     url = f"{BASE_URL}{path}"
 
     if method == "GET":
-        resp = requests.get(url, params=params, headers=headers, timeout=10)
+        resp = _session.get(url, params=params, headers=headers, timeout=10)
     elif method == "POST":
-        resp = requests.post(url, json=params, headers=headers, timeout=10)
+        resp = _session.post(url, json=params, headers=headers, timeout=10)
     elif method == "DELETE":
-        resp = requests.delete(url, params=params, headers=headers, timeout=10)
+        resp = _session.delete(url, params=params, headers=headers, timeout=10)
     else:
         raise ValueError(f"Unsupported method: {method}")
 

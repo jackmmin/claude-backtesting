@@ -165,16 +165,41 @@ def _calc_bollinger_bounce_signal(data, period=20, std_mult=2.0):
 
 def _find_historical_signals(data, k=0.5, is_minute=False):
     """
-    전체 히스토리 신호 탐색. O(n) 단일 패스.
-    - RSI: O(n) 시계열 미리 계산 후 인덱스 직접 참조
-    - MA: sliding window sum으로 O(n) 유지 (매 봉 sum() 슬라이싱 제거)
-    - 볼린저: 분산도 sliding 방식으로 O(n)
+    전체 히스토리 신호 탐색. 모든 지표를 O(n) 단일 패스로 계산.
+    - RSI: _rsi_series()로 미리 전체 시계열 계산
+    - MA5/MA20: prefix sum으로 O(1) 창 합산
+    - 볼린저: sum/sum-of-squares prefix로 O(1) 평균·분산 계산
     """
     closes = [c["trade_price"] for c in data]
     n = len(closes)
 
-    # RSI 시계열 한 번만 계산
+    # ── RSI 시계열 한 번만 계산 ──
     rsi_vals = _rsi_series(closes, 14)
+
+    # ── prefix sum (MA5, MA20) ──
+    prefix = [0.0] * (n + 1)
+    for i, v in enumerate(closes):
+        prefix[i + 1] = prefix[i] + v
+
+    def _window_sum(end_excl, length):
+        """closes[end_excl-length : end_excl] 합계 O(1)"""
+        return prefix[end_excl] - prefix[end_excl - length]
+
+    # ── 볼린저 prefix (sum, sum of squares) ──
+    prefix_sq = [0.0] * (n + 1)
+    for i, v in enumerate(closes):
+        prefix_sq[i + 1] = prefix_sq[i] + v * v
+
+    def _bollinger_params(end_excl, period=20):
+        """[end_excl-period, end_excl) 구간의 (mean, lower_band)를 O(1)로 반환.
+        기존 statistics.stdev와 동일하게 표본 표준편차(n-1 분모) 사용."""
+        s  = prefix[end_excl]    - prefix[end_excl - period]
+        s2 = prefix_sq[end_excl] - prefix_sq[end_excl - period]
+        mean = s / period
+        # 표본 분산: (Σx² - n·mean²) / (n-1)
+        var  = (s2 - period * mean * mean) / (period - 1)
+        std  = var ** 0.5 if var > 0 else 0.0
+        return mean, mean - 2.0 * std
 
     signal_map = {}
 
@@ -190,29 +215,24 @@ def _find_historical_signals(data, k=0.5, is_minute=False):
                 triggered_strategies.append("K_VOLATILITY_BREAKOUT")
 
         # ── RSI 과매도 회복 크로스 ──
-        # rsi_vals[i] = closes[0..i] 기준 RSI, rsi_vals[i-1] = closes[0..i-1] 기준 RSI
         rc = rsi_vals[i]
         rp = rsi_vals[i - 1]
         if rc is not None and rp is not None and rc >= 30 and rp < 30:
             triggered_strategies.append("RSI_OVERSOLD_BOUNCE")
 
-        # ── MA 골든크로스 (sliding window) ──
+        # ── MA 골든크로스 (prefix sum, O(1)) ──
         if i >= 20:
-            # 현재 창: closes[i-19..i], 이전 창: closes[i-20..i-1]
-            ma5_c  = sum(closes[i - 4:i + 1]) / 5  if i >= 4  else None
-            ma20_c = sum(closes[i - 19:i + 1]) / 20
-            ma5_p  = sum(closes[i - 5:i]) / 5  if i >= 5  else None
-            ma20_p = sum(closes[i - 20:i]) / 20 if i >= 20 else None
-            if (ma5_p is not None and ma20_p is not None and
-                    ma5_p <= ma20_p and ma5_c is not None and ma5_c > ma20_c):
+            e = i + 1  # exclusive end (현재 봉 포함)
+            ma5_c  = _window_sum(e,     5)  / 5
+            ma20_c = _window_sum(e,    20)  / 20
+            ma5_p  = _window_sum(e - 1, 5)  / 5
+            ma20_p = _window_sum(e - 1, 20) / 20
+            if ma5_p <= ma20_p and ma5_c > ma20_c:
                 triggered_strategies.append("MA_GOLDEN_CROSS")
 
-        # ── 볼린저밴드 반등 ──
+        # ── 볼린저밴드 반등 (prefix sum, O(1)) ──
         if i >= 20:
-            last20 = closes[i - 19:i + 1]
-            mid    = sum(last20) / 20
-            std    = statistics.stdev(last20)
-            lower  = mid - 2.0 * std
+            _, lower = _bollinger_params(i + 1)  # closes[i-19..i] 기준
             if closes[i - 1] < lower and closes[i] >= lower:
                 triggered_strategies.append("BOLLINGER_BOUNCE")
 

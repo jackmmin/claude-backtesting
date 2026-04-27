@@ -110,6 +110,13 @@ def check_and_execute(config: TradingConfig) -> dict:
     if sm.get_daily_trade_count(date_str) >= MAX_DAILY_TRADES:
         return {"status": "skipped", "reason": "일일 거래 한도 초과", "time": now_str}
 
+    position = sm.get_position(source="auto")
+
+    # 포지션 보유 중에는 현재가만 체크 — 캔들 200개 fetch 불필요
+    if position and position["market"] == config.market:
+        return _check_exit(config, position, now_str)
+
+    # 미보유 상태: 매수 신호 판단을 위해 캔들 fetch
     signals_data = calculate_signals(
         exchange="upbit",
         market=config.market,
@@ -127,18 +134,10 @@ def check_and_execute(config: TradingConfig) -> dict:
     if not target:
         return {"status": "skipped", "reason": "전략 신호 없음", "time": now_str}
 
-    position = sm.get_position(source="auto")
-
-    if not position and target["triggered"]:
+    if target["triggered"]:
         return _execute_buy(config, date_str, now_str)
 
-    if position and position["market"] == config.market:
-        # 포지션 보유 중 매수 신호가 다시 발생하면 이벤트 기록
-        if target["triggered"]:
-            sm.set_last_event("position_exists", "현재 포지션이 존재합니다")
-        return _check_exit(config, position, now_str)
-
-    return {"status": "waiting", "triggered": target["triggered"], "time": now_str}
+    return {"status": "waiting", "triggered": False, "time": now_str}
 
 
 def _execute_buy(config: TradingConfig, date_str: str, now_str: str) -> dict:
