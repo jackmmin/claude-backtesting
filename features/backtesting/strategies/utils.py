@@ -249,7 +249,7 @@ def build_result(strategy, trades, initial_capital, current_signal, candles=None
         equity_curve.append({"date": t["date"], "value": portfolio})
         t["krw_pnl"] = portfolio - prev
 
-    total_return = portfolio / initial_capital - 1
+    total_return = (portfolio / initial_capital - 1) if initial_capital > 0 else 0
 
     trade_markers = [
         {"buy_datetime": t["buy_datetime"], "sell_datetime": t["sell_datetime"], "win": t["win"]}
