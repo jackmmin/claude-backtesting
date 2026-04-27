@@ -96,24 +96,29 @@ function renderOrders(orders) {
 
 function renderTrades(trades) {
   const fmt = n => Number(n).toLocaleString("ko-KR");
-  const exitLabels = { take_profit: "익절", stop_loss: "손절", strategy_signal: "전략신호" };
+  const exitLabels = { take_profit: "익절", stop_loss: "손절", strategy_signal: "전략신호", manual_close: "수동청산" };
   const tradeBody  = document.getElementById("ltTradesBody");
   if (trades && trades.length > 0) {
     tradeBody.innerHTML = trades.map((t, i) => {
-      const pnl   = t.pnl_pct || 0;
-      const color = pnl >= 0 ? "#3fb950" : "#f85149";
+      const pnl      = t.pnl_pct || 0;
+      const color    = pnl >= 0 ? "#3fb950" : "#f85149";
+      const entrySeed = t.entry_seed != null ? fmt(Math.round(t.entry_seed)) + " ₩" : "-";
+      const fee       = t.fee      != null ? fmt(Math.round(t.fee))       + " ₩" : "-";
+      const seedAfter = t.seed_after != null ? fmt(Math.round(t.seed_after)) + " ₩" : "-";
       return `<tr>
         <td>${trades.length - i}</td>
         <td style="text-align:left;color:#8b949e;font-size:0.78rem">${(t.buy_datetime  ||"").slice(0,16).replace("T"," ")}</td>
         <td style="text-align:left;color:#8b949e;font-size:0.78rem">${(t.sell_datetime ||"").slice(0,16).replace("T"," ")}</td>
-        <td>${fmt(Math.round(t.buy_price))} ₩</td>
         <td>${fmt(Math.round(t.sell_price))} ₩</td>
+        <td>${entrySeed}</td>
+        <td style="color:#8b949e">${fee}</td>
         <td style="color:${color}">${(pnl*100).toFixed(2)}%</td>
         <td style="color:${color}">${(t.pnl_krw>=0?"+":"")+fmt(t.pnl_krw)} ₩</td>
+        <td style="color:${color}">${seedAfter}</td>
         <td style="text-align:left">${exitLabels[t.exit_reason]||t.exit_reason}</td>
       </tr>`;
     }).join("");
   } else {
-    tradeBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#8b949e;padding:20px;">거래 없음</td></tr>';
+    tradeBody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#8b949e;padding:20px;">거래 없음</td></tr>';
   }
 }

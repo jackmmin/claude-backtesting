@@ -70,6 +70,7 @@ def set_position(position: Position):
         "source": position.source,
         "strategy_params": position.strategy_params,
         "entry_order_uuid": position.entry_order_uuid,
+        "entry_seed": position.entry_seed,
     }
     _write_state(state)
 
@@ -79,15 +80,25 @@ def close_position(sell_price: float, sell_datetime: str, exit_reason: str, orde
     key = "auto_position" if source == "auto" else "manual_position"
     pos = state.get(key)
     if pos:
+        entry_seed = pos.get("entry_seed", 0.0)
+        qty = pos["quantity"]
         pnl_pct = (sell_price - pos["entry_price"]) / pos["entry_price"]
+        # 실제 수수료: 매수 시 (entry_price - raw_price)*qty + 매도 시 sell_raw*qty*fee_rate 를
+        # 근사값으로 entry_seed * 0.0005 * 2 (업비트 단방향 0.05% × 2회)
+        fee = round(entry_seed * 0.001)
+        pnl_krw = round(qty * (sell_price - pos["entry_price"]))
+        seed_after = round(entry_seed + pnl_krw)
         state["trades"].append({
             "buy_datetime": pos["entry_datetime"],
             "buy_price": pos["entry_price"],
             "sell_datetime": sell_datetime,
             "sell_price": sell_price,
-            "quantity": pos["quantity"],
+            "quantity": qty,
+            "entry_seed": entry_seed,
+            "fee": fee,
             "pnl_pct": round(pnl_pct, 6),
-            "pnl_krw": round(pos["quantity"] * (sell_price - pos["entry_price"])),
+            "pnl_krw": pnl_krw,
+            "seed_after": seed_after,
             "strategy": pos["strategy"],
             "source": pos.get("source", source),
             "exit_reason": exit_reason,

@@ -108,7 +108,15 @@ function renderBacktest(d) {
       <td style="text-align:left;color:#8b949e">${(t.sell_datetime || "").slice(0,16).replace("T"," ")}</td>
       <td>${fmt(t.buy_price)} ₩</td>
       <td>${fmt(t.sell_price)} ₩</td>
-      <td style="color:#8b949e">${t.entry_amount != null ? fmt(t.entry_amount) + " ₩" : "-"}</td>
+      <td style="color:#8b949e">${(() => {
+        if (t.entry_amount == null) return "-";
+        // 보유중(청산 미완료): 진입 시드에서 수수료만 차감
+        // 청산 완료: 진입 시드에서 손익과 수수료를 반영
+        const seed = isOpen
+          ? t.entry_amount - (t.fee || 0)
+          : t.entry_amount + (t.krw_pnl || 0) - (t.fee || 0);
+        return fmt(seed) + " ₩";
+      })()}</td>
       <td style="color:#8b949e">${t.fee != null ? fmt(t.fee) + " ₩" : "-"}</td>
       <td style="color:${pnlColor}">${pnlText}</td>
       <td>${krwText}</td>

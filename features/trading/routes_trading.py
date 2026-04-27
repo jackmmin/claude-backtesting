@@ -177,15 +177,18 @@ def set_manual_position():
         if not data.get(f):
             return jsonify({"error": f"{f} 필드가 필요합니다"}), 400
 
+    qty = float(data["quantity"])
+    ep = float(data["entry_price"])
     pos = Position(
         market=data["market"],
-        entry_price=float(data["entry_price"]),
+        entry_price=ep,
         entry_datetime=data["entry_datetime"],
-        quantity=float(data["quantity"]),
+        quantity=qty,
         strategy=data.get("strategy", "MANUAL"),
         source="manual",
         strategy_params={},
         entry_order_uuid=data.get("order_uuid", ""),
+        entry_seed=round(data["entry_seed"]) if data.get("entry_seed") else round(ep * qty),
     )
     sm.set_position(pos)
     return jsonify({"success": True, "manual_position": sm.get_position(source="manual")})

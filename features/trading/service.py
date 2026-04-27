@@ -171,6 +171,7 @@ def _execute_buy(config: TradingConfig, date_str: str, now_str: str) -> dict:
         source="auto",
         strategy_params=config.strategy_params,
         entry_order_uuid=result.get("uuid", ""),
+        entry_seed=round(executed_funds),  # 실제 투입된 원화 (수수료 포함)
     )
     sm.set_position(pos)
     sm.increment_daily_trade_count(date_str)

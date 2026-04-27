@@ -31,6 +31,7 @@ class Position:
     source: str = "auto"      # "auto" (자동매매) | "manual" (직접 진입)
     strategy_params: dict = field(default_factory=dict)
     entry_order_uuid: str = ""
+    entry_seed: float = 0.0   # 매수 시 투입된 원화 금액 (수수료 포함)
 
 
 @dataclass
