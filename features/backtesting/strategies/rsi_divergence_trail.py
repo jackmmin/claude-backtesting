@@ -141,7 +141,7 @@ def run(data, rsi_period=14, lookback=30, vol_mult=1.5,
             "win":           pnl_unreal > 0,
             "open":          True,
             "entry_amount":  entry_amount,
-            "fee":           round(entry_amount * FEE_RATE + exit_amount_unreal * FEE_RATE),
+            "fee":           round(entry_amount * FEE_RATE),  # 진입 수수료만 (청산 전)
         }
 
     # 현재 신호 상태 (마지막 봉 기준)

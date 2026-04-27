@@ -105,7 +105,7 @@ function getStrategyDesc(strategy) {
 
 function onStrategyChange() {
   const strategy = document.getElementById("strategySelect").value;
-  ["ctrl-k", "ctrl-rsi", "ctrl-ma", "ctrl-bb"].forEach(id =>
+  ["ctrl-k", "ctrl-tb", "ctrl-rdi", "ctrl-rsi", "ctrl-ma", "ctrl-bb"].forEach(id =>
     document.getElementById(id).classList.remove("active")
   );
   const map = {

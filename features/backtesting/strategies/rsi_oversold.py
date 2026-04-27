@@ -109,7 +109,7 @@ def run(data, period=14, threshold=30, exit_threshold=62,
             "win": pnl_unrealized > 0,
             "open": True,
             "entry_amount": entry_amount,
-            "fee": round(entry_amount * FEE_RATE + exit_amount_unreal * FEE_RATE),
+            "fee": round(entry_amount * FEE_RATE),  # 진입 수수료만 (청산 전)
         }
 
     closes = [c["trade_price"] for c in data]
@@ -135,7 +135,7 @@ def run(data, period=14, threshold=30, exit_threshold=62,
             "win": False,
             "open": True,
             "entry_amount": portfolio,
-            "fee": round(portfolio * FEE_RATE * 2),
+            "fee": round(portfolio * FEE_RATE),  # 진입 수수료만 (청산 전)
         }
 
     current_signal = {
