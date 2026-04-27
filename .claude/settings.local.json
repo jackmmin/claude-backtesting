@@ -24,7 +24,8 @@
       "Bash(curl -v \"http://localhost:5000/api/indicators?market=KRW-BTC&interval=days&count=30\")",
       "Bash(pkill -f \"python app.py\")",
       "Bash(powershell -command \"Get-Process python | Stop-Process -Force\")",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(grep -E \"\\\\.\\(js|py|tsx|ts|jsx|html\\)$\")"
     ],
     "deny": [
       "Read(D:/claude-code/claude-coin/logs/LOG.md)"
